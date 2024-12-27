@@ -6,14 +6,14 @@ COPY go.mod go.sum ./
 
 RUN go get ./...
 
-COPY ./cmd ./internal ./pkg ./proto ./
+COPY . .
 
-RUN go build -o ./build/app ./cmd/server
+RUN go build -o ./build/app ./cmd/server/
 
 FROM ubuntu:25.04 AS app
 
 WORKDIR /app
 
-COPY --from=build /build/app .
+COPY --from=build /app-build/build/app .
 
 ENTRYPOINT ["./app"]
