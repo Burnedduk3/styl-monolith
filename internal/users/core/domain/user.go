@@ -11,11 +11,11 @@ const (
 )
 
 type User struct {
-	ID        int
+	ID        uint
 	Name      string
 	Email     string
 	Country   string
-	Role      string
+	Role      Role
 	Status    Status
 	LastIp    string
 	LastLogin time.Time

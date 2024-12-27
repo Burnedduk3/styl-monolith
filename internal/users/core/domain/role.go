@@ -1,11 +1,11 @@
 package domain
 
 type Role struct {
-	ID   int
+	ID   uint
 	Name string
 }
 
 type Permissions struct {
-	ID   int
+	ID   uint
 	Name string
 }
