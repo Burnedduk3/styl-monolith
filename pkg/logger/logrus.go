@@ -6,7 +6,7 @@ import (
 )
 
 type Logger struct {
-	instance *logrus.Logger
+	Instance *logrus.Logger
 }
 
 var (
@@ -23,8 +23,8 @@ func GetLogger(level logrus.Level) *logrus.Logger {
 		})
 		log.SetLevel(level)
 
-		loggerInstance = &Logger{instance: log}
+		loggerInstance = &Logger{Instance: log}
 	})
 
-	return loggerInstance.instance
+	return loggerInstance.Instance
 }
