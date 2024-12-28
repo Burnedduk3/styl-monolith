@@ -9,7 +9,7 @@ import (
 type LoginRest interface {
 	PostLogin(ech echo.Context) error
 	PostLogout(ech echo.Context) error
-	PostRefresh(ech echo.Context) error
+	PostRefreshToken(ech echo.Context) error
 	ChangePassword(ech echo.Context) error
 }
 
@@ -32,7 +32,7 @@ func (l *LoginRestStruct) PostLogout(c echo.Context) error {
 	return nil
 }
 
-func (l *LoginRestStruct) PostRefresh(c echo.Context) error {
+func (l *LoginRestStruct) PostRefreshToken(c echo.Context) error {
 	// TODO: Implement PostRefresh
 	return nil
 }

@@ -49,7 +49,7 @@ func RegisterUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 }
 
 // main initializes and starts both an HTTP server using Echo and a gRPC server on their respective ports.
-// It handles server errors gracefully and logs critical messages.
+// It handles server errorhandler gracefully and logs critical messages.
 func main() {
 	logger := log.GetLogger(logrus.GetLevel())
 	// Spin up Echo HTTP server on port 1323
