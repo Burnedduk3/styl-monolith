@@ -47,7 +47,7 @@ type UserResponse struct {
 	Status      string `json:"status"`
 }
 
-func NewCreateUserResponseFromDomainUser(user domain.User) UserResponse {
+func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 	return UserResponse{
 		Name:        user.Name,
 		Username:    user.Username,
@@ -68,8 +68,8 @@ func (r *RolePayload) Validate() error {
 	if validator.IsStringEmpty(r.Name) ||
 		validator.IsStringEmpty(r.Description) {
 		return errorhandler.NewDomainError(
-			errorhandler.ErrUserRequestPayloadBadRequestEmptyFields,
-			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestEmptyFields),
+			errorhandler.ErrRoleRequestPayloadBadRequestEmptyFields,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestEmptyFields),
 			nil)
 	}
 	return nil
@@ -80,9 +80,16 @@ type RoleResponse struct {
 	Description string `json:"description"`
 }
 
-func NewCreateRoleResponseFromDomainRole(role domain.Role) RoleResponse {
+func NewRoleResponseFromDomainRole(role domain.Role) RoleResponse {
 	return RoleResponse{
 		Name:        role.Name,
 		Description: role.Description,
 	}
+}
+
+type PaginationResponse struct {
+	CurrentPage int         `json:"current_page"`
+	PageSize    int         `json:"page_size"`
+	TotalPages  int         `json:"total_pages"`
+	Data        interface{} `json:"data"`
 }

@@ -2,7 +2,9 @@ package aws
 
 import (
 	"fmt"
+	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
+	gormLogger "gorm.io/gorm/logger"
 	"styl-monolith/pkg/logger"
 	"sync"
 
@@ -22,8 +24,8 @@ var (
 )
 
 // GetDatabaseInstance returns the single instance of Database
-func GetDatabaseInstance(log *logrus.Logger) *Database {
-	log.Debug(logger.OpeningDatabaseConnection)
+func GetDatabaseInstance(logs *logrus.Logger) *Database {
+	logs.Debug(logger.OpeningDatabaseConnection)
 	once.Do(func() {
 		host := viper.GetString("DB_HOST")
 		user := viper.GetString("DB_USER")
@@ -34,7 +36,9 @@ func GetDatabaseInstance(log *logrus.Logger) *Database {
 		log.Debug(fmt.Sprintf(logger.ConnectionVariables, user, host, port, dbname, sslmode))
 		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 			host, user, password, dbname, port, sslmode)
-		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+			Logger: gormLogger.Default.LogMode(gormLogger.Silent),
+		})
 		if err != nil {
 			log.Fatalf(fmt.Sprintf(logger.FatalErrorConnectingToDatabase, err))
 		}

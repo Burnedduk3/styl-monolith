@@ -5,10 +5,12 @@ const (
 	ErrUserRequestPayloadBadRequestValidationError   = "USER_001"
 	ErrUserRequestPayloadBadRequestEmptyFields       = "USER_002"
 	ErrUserRequestPayloadBadRequestJsonBadlyFormated = "USER_003"
+	ErrUserDatabaseUnableToCompleteOperation         = "USER_004"
 
 	// Role error handler
 	ErrRoleRequestPayloadBadRequestJsonBadlyFormated = "ROLE_001"
 	ErrRoleRequestPayloadBadRequestEmptyFields       = "ROLE_002"
+	ErrRoleDatabaseUnableToCompleteOperation         = "ROLE_003"
 )
 
 var errorMessages = map[string]string{
@@ -17,6 +19,8 @@ var errorMessages = map[string]string{
 	ErrUserRequestPayloadBadRequestJsonBadlyFormated: "request payload for user is wrong, JSON is badly formated",
 	ErrRoleRequestPayloadBadRequestJsonBadlyFormated: "request payload for role is wrong, JSON is badly formated",
 	ErrRoleRequestPayloadBadRequestEmptyFields:       "request payload for role is wrong, required fields are empty",
+	ErrRoleDatabaseUnableToCompleteOperation:         "unable to complete operation on specified role",
+	ErrUserDatabaseUnableToCompleteOperation:         "unable to complete operation on specified user",
 }
 
 func GetErrorMessage(code string) string {

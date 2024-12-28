@@ -21,8 +21,8 @@ type CrudService interface {
 	UpdateRole(id uint, name string) (domain.Role, error)
 	GetUser(id uint) (domain.User, error)
 	GetRole(id uint) (domain.Role, error)
-	ListUsers(offset, limit uint) ([]domain.User, error)
-	ListRoles(offset, limit uint) ([]domain.Role, error)
+	ListUsers(offset, limit int) ([]domain.User, int, error)
+	ListRoles(offset, limit int) ([]domain.Role, int, error)
 }
 
 func NewCrudService(log *logrus.Logger, userCrudRepo ports.UserPort, roleRepo ports.RolePort) CrudService {
@@ -91,12 +91,18 @@ func (c *CrudServiceStruct) GetRole(id uint) (domain.Role, error) {
 	return domain.Role{}, nil
 }
 
-func (c *CrudServiceStruct) ListUsers(offset, limit uint) ([]domain.User, error) {
-	// TODO: Implement the logic for listing users
-	return []domain.User{}, nil
+func (c *CrudServiceStruct) ListUsers(page, size int) ([]domain.User, int, error) {
+	users, totalPages, err := c.userCrudRepo.ListUsers(page, size)
+	if err != nil {
+		return []domain.User{}, 0, err
+	}
+	return users, totalPages, nil
 }
 
-func (c *CrudServiceStruct) ListRoles(offset, limit uint) ([]domain.Role, error) {
-	// TODO: Implement the logic for listing roles
-	return []domain.Role{}, nil
+func (c *CrudServiceStruct) ListRoles(page, size int) ([]domain.Role, int, error) {
+	roles, totalPages, err := c.roleCrudRepo.ListRoles(page, size)
+	if err != nil {
+		return []domain.Role{}, 0, err
+	}
+	return roles, totalPages, nil
 }

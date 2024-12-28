@@ -32,7 +32,9 @@ func getHTTPStatusCode(errorCode string) int {
 	switch errorCode {
 	case ErrUserRequestPayloadBadRequestValidationError,
 		ErrUserRequestPayloadBadRequestEmptyFields,
-		ErrUserRequestPayloadBadRequestJsonBadlyFormated:
+		ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+		ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
+		ErrRoleRequestPayloadBadRequestEmptyFields:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
