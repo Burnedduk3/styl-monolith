@@ -2,17 +2,21 @@ package errorhandler
 
 const (
 	// User domain errorhandler
-	ErrUserRequestPayloadBadRequest = "USER_001"
+	ErrUserRequestPayloadBadRequestValidationError   = "USER_001"
+	ErrUserRequestPayloadBadRequestEmptyFields       = "USER_002"
+	ErrUserRequestPayloadBadRequestJsonBadlyFormated = "USER_003"
 
-	// Order domain errorhandler
-	ErrOrderNotFound     = "ORDER_001"
-	ErrInvalidOrderState = "ORDER_002"
+	// Role error handler
+	ErrRoleRequestPayloadBadRequestJsonBadlyFormated = "ROLE_001"
+	ErrRoleRequestPayloadBadRequestEmptyFields       = "ROLE_002"
 )
 
 var errorMessages = map[string]string{
-	ErrUserRequestPayloadBadRequest: "request payload is wrong",
-	ErrOrderNotFound:                "order not found",
-	ErrInvalidOrderState:            "invalid order state",
+	ErrUserRequestPayloadBadRequestValidationError:   "request payload is wrong, had validation errors on inputs",
+	ErrUserRequestPayloadBadRequestEmptyFields:       "request payload is wrong, Required fields are empty",
+	ErrUserRequestPayloadBadRequestJsonBadlyFormated: "request payload for user is wrong, JSON is badly formated",
+	ErrRoleRequestPayloadBadRequestJsonBadlyFormated: "request payload for role is wrong, JSON is badly formated",
+	ErrRoleRequestPayloadBadRequestEmptyFields:       "request payload for role is wrong, required fields are empty",
 }
 
 func GetErrorMessage(code string) string {

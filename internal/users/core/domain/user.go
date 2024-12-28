@@ -12,6 +12,7 @@ const (
 
 type User struct {
 	ID          uint
+	Username    string
 	Name        string
 	Email       string
 	Country     string

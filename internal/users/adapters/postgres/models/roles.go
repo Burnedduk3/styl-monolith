@@ -7,19 +7,24 @@ import (
 
 type Role struct {
 	gorm.Model
-	Name string
+	Name        string `gorm:"unique"`
+	Description string
 }
 
-func NewPostgresRoleFromDomainRole(user domain.Role) Role {
+func NewPostgresRoleFromDomainRole(role domain.Role) Role {
 	return Role{
-		Name: user.Name,
+		Name:        role.Name,
+		Description: role.Description,
 	}
 }
 
-func (r *Role) toRoleDomain() domain.Role {
-	mappedUser := domain.Role{
-		ID:   r.Model.ID,
-		Name: r.Name,
+func (r *Role) ToRoleDomain() domain.Role {
+	mappedRole := domain.Role{
+		ID:          r.Model.ID,
+		Name:        r.Name,
+		Description: r.Description,
+		Created:     r.CreatedAt,
+		Updated:     r.UpdatedAt,
 	}
-	return mappedUser
+	return mappedRole
 }

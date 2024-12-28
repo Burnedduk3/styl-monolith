@@ -2,7 +2,8 @@ package aws
 
 import (
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
+	"styl-monolith/pkg/logger"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -21,7 +22,8 @@ var (
 )
 
 // GetDatabaseInstance returns the single instance of Database
-func GetDatabaseInstance() *Database {
+func GetDatabaseInstance(log *logrus.Logger) *Database {
+	log.Debug(logger.OpeningDatabaseConnection)
 	once.Do(func() {
 		host := viper.GetString("DB_HOST")
 		user := viper.GetString("DB_USER")
@@ -29,12 +31,12 @@ func GetDatabaseInstance() *Database {
 		dbname := viper.GetString("DB_NAME")
 		port := viper.GetString("DB_PORT")
 		sslmode := viper.GetString("DB_SSLMODE")
-
+		log.Debug(fmt.Sprintf(logger.ConnectionVariables, user, host, port, dbname, sslmode))
 		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 			host, user, password, dbname, port, sslmode)
 		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 		if err != nil {
-			log.Fatalf("Error connecting to database: %v", err)
+			log.Fatalf(fmt.Sprintf(logger.FatalErrorConnectingToDatabase, err))
 		}
 		instance = &Database{conn: db}
 	})

@@ -8,34 +8,43 @@ import (
 
 type User struct {
 	gorm.Model
-	Name      string
-	Email     string
-	Country   string
-	RoleID    uint
-	Status    string `gorm:"default:'active'"`
-	LastIp    *string
-	LastLogin time.Time `gorm:"autoUpdateTime:milli"`
+	Username    string `gorm:"unique"`
+	Name        string
+	Email       string `gorm:"unique"`
+	Phone       string `gorm:"unique"`
+	CountryCode string
+	Country     string
+	RoleID      uint
+	Status      string `gorm:"default:'active'"`
+	LastIp      *string
+	LastLogin   time.Time `gorm:"autoUpdateTime:milli"`
 }
 
 func NewPostgresUserFromDomainUser(user domain.User) User {
 	return User{
-		Name:      user.Name,
-		Email:     user.Email,
-		Country:   user.Country,
-		Status:    string(user.Status),
-		LastIp:    &user.LastIp,
-		LastLogin: user.LastLogin,
+		Username:    user.Username,
+		Name:        user.Name,
+		Phone:       user.Phone,
+		CountryCode: user.CountryCode,
+		Email:       user.Email,
+		Country:     user.Country,
+		Status:      string(user.Status),
+		LastIp:      &user.LastIp,
+		LastLogin:   user.LastLogin,
 	}
 }
 
-func (u *User) toUserDomain() domain.User {
+func (u *User) ToUserDomain() domain.User {
 	mappedUser := domain.User{
-		ID:        u.Model.ID,
-		Name:      u.Name,
-		Email:     u.Email,
-		Country:   u.Country,
-		LastLogin: u.LastLogin,
-		Created:   u.CreatedAt,
+		ID:          u.Model.ID,
+		Username:    u.Username,
+		Name:        u.Name,
+		Email:       u.Email,
+		Phone:       u.Phone,
+		Country:     u.Country,
+		CountryCode: u.CountryCode,
+		LastLogin:   u.LastLogin,
+		Created:     u.CreatedAt,
 	}
 	if u.Status == "active" {
 		mappedUser.Status = domain.StatusActive

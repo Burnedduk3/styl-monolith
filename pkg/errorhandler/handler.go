@@ -30,7 +30,9 @@ func HandleError(c echo.Context, err error, logger *logrus.Logger) error {
 
 func getHTTPStatusCode(errorCode string) int {
 	switch errorCode {
-	case ErrUserRequestPayloadBadRequest:
+	case ErrUserRequestPayloadBadRequestValidationError,
+		ErrUserRequestPayloadBadRequestEmptyFields,
+		ErrUserRequestPayloadBadRequestJsonBadlyFormated:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

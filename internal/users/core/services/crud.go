@@ -3,15 +3,18 @@ package services
 import (
 	"github.com/sirupsen/logrus"
 	"styl-monolith/internal/users/core/domain"
+	"styl-monolith/internal/users/core/ports"
 )
 
 type CrudServiceStruct struct {
-	logger *logrus.Logger
+	logger       *logrus.Logger
+	userCrudRepo ports.UserPort
+	roleCrudRepo ports.RolePort
 }
 
 type CrudService interface {
-	CreateUser(name, email, country, phone, countryCode, lastIp string) (domain.User, error)
-	CreateRole(name string) (domain.Role, error)
+	CreateUser(name, username, email, country, phone, countryCode string) (domain.User, error)
+	CreateRole(name, description string) (domain.Role, error)
 	DeleteUser(id uint) error
 	DeleteRole(id uint) error
 	UpdateUser(id uint, name, email, country, lastIp string) (domain.User, error)
@@ -22,20 +25,40 @@ type CrudService interface {
 	ListRoles(offset, limit uint) ([]domain.Role, error)
 }
 
-func NewCrudService(log *logrus.Logger) CrudService {
+func NewCrudService(log *logrus.Logger, userCrudRepo ports.UserPort, roleRepo ports.RolePort) CrudService {
 	return &CrudServiceStruct{
-		logger: log,
+		logger:       log,
+		userCrudRepo: userCrudRepo,
+		roleCrudRepo: roleRepo,
 	}
 }
 
-func (c *CrudServiceStruct) CreateUser(name, email, country, phone, countryCode, lastIp string) (domain.User, error) {
-	// TODO: Add logic for creating a new user in the system.
-	return domain.User{}, nil
+func (c *CrudServiceStruct) CreateUser(name, username, email, country, phone, countryCode string) (domain.User, error) {
+	domainUser := domain.User{
+		Name:        name,
+		Username:    username,
+		Email:       email,
+		Country:     country,
+		Phone:       phone,
+		CountryCode: countryCode,
+	}
+	dUser, err := c.userCrudRepo.CreateUser(domainUser)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return dUser, nil
 }
 
-func (c *CrudServiceStruct) CreateRole(name string) (domain.Role, error) {
-	// TODO: Add logic for creating a new role in the system.
-	return domain.Role{}, nil
+func (c *CrudServiceStruct) CreateRole(name, description string) (domain.Role, error) {
+	domainRole := domain.Role{
+		Name:        name,
+		Description: description,
+	}
+	dRole, err := c.roleCrudRepo.CreateRole(domainRole)
+	if err != nil {
+		return domain.Role{}, err
+	}
+	return dRole, nil
 }
 
 func (c *CrudServiceStruct) DeleteUser(id uint) error {

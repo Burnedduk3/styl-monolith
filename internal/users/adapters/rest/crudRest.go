@@ -23,29 +23,56 @@ type CrudRest interface {
 }
 
 type crudRestStruct struct {
-	crudService *services.CrudService
+	crudService services.CrudService
 	logger      *logrus.Logger
 }
 
-func NewCrudRestUser(crudService *services.CrudService, logger *logrus.Logger) CrudRest {
+func NewCrudRestUser(crudService services.CrudService, logger *logrus.Logger) CrudRest {
 	return &crudRestStruct{crudService: crudService, logger: logger}
 }
 
 func (c *crudRestStruct) CreateUser(ech echo.Context) error {
 	c.logger.Debug("CreateUser method called")
-	var body models.CreateUserPayload
-	if err := ech.Bind(&body); err != nil || body.Validate() != nil {
-		domErr := errorhandler.NewDomainError(errorhandler.ErrUserRequestPayloadBadRequest, errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequest), err)
+	var body models.UserPayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
 		c.logger.Error(domErr.Error())
 		return errorhandler.HandleError(ech, domErr, c.logger)
 	}
-
-	return ech.JSON(http.StatusOK, nil)
+	if err := body.Validate(); err != nil {
+		c.logger.Error(err.Error())
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	dUser, err := c.crudService.CreateUser(body.Name, body.Username, body.Email, body.Country, body.Phone, body.CountryCode)
+	if err != nil {
+		c.logger.Error(err)
+	}
+	return ech.JSON(http.StatusOK, models.NewCreateUserResponseFromDomainUser(dUser))
 }
 
 func (c *crudRestStruct) CreateRole(ech echo.Context) error {
 	c.logger.Debug("CreateRole method called")
-	return ech.JSON(http.StatusOK, nil)
+	var body models.RolePayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	if err := body.Validate(); err != nil {
+		c.logger.Error(err.Error())
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	dRole, err := c.crudService.CreateRole(body.Name, body.Description)
+	if err != nil {
+		c.logger.Error(err)
+	}
+	return ech.JSON(http.StatusOK, models.NewCreateRoleResponseFromDomainRole(dRole))
 }
 
 func (c *crudRestStruct) DeleteUser(ech echo.Context, id uint) error {
