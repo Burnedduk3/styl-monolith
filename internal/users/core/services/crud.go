@@ -15,12 +15,12 @@ type CrudServiceStruct struct {
 type CrudService interface {
 	CreateUser(name, username, email, country, phone, countryCode string) (domain.User, error)
 	CreateRole(name, description string) (domain.Role, error)
-	DeleteUser(id uint) error
-	DeleteRole(id uint) error
-	UpdateUser(id uint, name, email, country, lastIp string) (domain.User, error)
-	UpdateRole(id uint, name string) (domain.Role, error)
-	GetUser(id uint) (domain.User, error)
-	GetRole(id uint) (domain.Role, error)
+	DeleteUserById(id uint) error
+	DeleteRoleById(id uint) error
+	UpdateUserById(id uint, name, email, country, lastIp string) (domain.User, error)
+	UpdateRoleById(id uint, name string) (domain.Role, error)
+	GetUserById(id uint) (domain.User, error)
+	GetRoleById(id uint) (domain.Role, error)
 	GetRoleByName(name string) (domain.Role, error)
 	GetUserByUsername(username string) (domain.User, error)
 	GetUserByEmail(email string) (domain.User, error)
@@ -64,17 +64,17 @@ func (c *CrudServiceStruct) CreateUser(name, username, email, country, phone, co
 	return dUser, nil
 }
 
-func (c *CrudServiceStruct) DeleteRole(id uint) error {
+func (c *CrudServiceStruct) DeleteRoleById(id uint) error {
 	// TODO: Add logic for deleting a role by ID.
 	return nil
 }
 
-func (c *CrudServiceStruct) DeleteUser(id uint) error {
+func (c *CrudServiceStruct) DeleteUserById(id uint) error {
 	// TODO: Add logic for deleting a user by ID.
 	return nil
 }
 
-func (c *CrudServiceStruct) GetRole(id uint) (domain.Role, error) {
+func (c *CrudServiceStruct) GetRoleById(id uint) (domain.Role, error) {
 	// TODO: Add logic for retrieving a role by their ID.
 	return domain.Role{}, nil
 }
@@ -84,7 +84,7 @@ func (c *CrudServiceStruct) GetRoleByName(name string) (domain.Role, error) {
 	panic("implement me")
 }
 
-func (c *CrudServiceStruct) GetUser(id uint) (domain.User, error) {
+func (c *CrudServiceStruct) GetUserById(id uint) (domain.User, error) {
 	// TODO: Add logic for retrieving a user by their ID.
 	return domain.User{}, nil
 }
@@ -115,12 +115,12 @@ func (c *CrudServiceStruct) ListUsers(page, size int) ([]domain.User, int, error
 	return users, totalPages, nil
 }
 
-func (c *CrudServiceStruct) UpdateRole(id uint, name string) (domain.Role, error) {
+func (c *CrudServiceStruct) UpdateRoleById(id uint, name string) (domain.Role, error) {
 	// TODO: Add logic for updating an existing role's details.
 	return domain.Role{}, nil
 }
 
-func (c *CrudServiceStruct) UpdateUser(id uint, name, email, country, lastIp string) (domain.User, error) {
+func (c *CrudServiceStruct) UpdateUserById(id uint, name, email, country, lastIp string) (domain.User, error) {
 	// TODO: Add logic for updating an existing user's details.
 	return domain.User{}, nil
 }

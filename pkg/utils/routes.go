@@ -33,36 +33,42 @@ func getHTTPVerbFromMethodName(methodName string) string {
 }
 
 // buildRoutePath determines the route path from a method's name and optionally adds route parameters.
-func buildRoutePath(pathPrefix, methodName string) string {
+func buildRoutePath(pathPrefix, methodName string) (string, string) {
 	var sb strings.Builder
 	routePath := ""
-
-	// Add an ID parameter for applicable methods
-	if strings.HasPrefix(methodName, "Get") || strings.HasPrefix(methodName, "Delete") || strings.HasPrefix(methodName, "Update") {
-		routePath += "/:id"
+	routeParam := ""
+	extractedRouteName := ""
+	if strings.Contains(strings.ToLower(methodName), "by") {
+		// split the function name by the word 'by' and use the second part as param
+		splittedName := strings.Split(strings.ToLower(methodName), "by")
+		extractedRouteName = strings.ToLower(splittedName[0])
+		routeParam = strings.ToLower(splittedName[1])
+	} else {
+		extractedRouteName = strings.ToLower(methodName)
 	}
-
 	// Strip HTTP verb prefix from the method name
 	verbs := []string{"Get", "Delete", "Update", "Create", "Patch", "List", "Post"}
 	for _, verb := range verbs {
-		if strings.HasPrefix(strings.ToLower(methodName), strings.ToLower(verb)) {
-			methodName = methodName[len(verb):] // Remove the prefix
+		if strings.HasPrefix(strings.ToLower(extractedRouteName), strings.ToLower(verb)) {
+			extractedRouteName = extractedRouteName[len(verb):] // Remove the prefix
 			break
 		}
 	}
 
 	// Build the route path by adding slashes before uppercase letters
-	for i, r := range methodName {
+	for i, r := range extractedRouteName {
 		if i > 0 && r >= 'A' && r <= 'Z' {
 			sb.WriteRune('-')
 		}
 		sb.WriteRune(r)
 	}
-
-	// Combine the processed path and convert it to lowercase
 	routePath = pathPrefix + "/" + strings.ToLower(sb.String()) + routePath
+	if routeParam != "" {
+		routePath += fmt.Sprintf("/:%s", routeParam)
+	}
+	// Combine the processed path and convert it to lowercase
 
-	return routePath
+	return routePath, routeParam
 }
 
 // RegisterRoutesAutomatically registers routes dynamically based on the methods in the handler.
@@ -72,27 +78,22 @@ func RegisterRoutesAutomatically(e *echo.Echo, handler interface{}, methodPrefix
 
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)
-		routePath := buildRoutePath(methodPrefix, method.Name)
+		routePath, routeParam := buildRoutePath(methodPrefix, method.Name)
 		httpVerb := getHTTPVerbFromMethodName(method.Name)
 		log.Debug(fmt.Sprintf("http_verb: %s route_path: %s", httpVerb, routePath))
 
 		// Dynamic route registration
 		e.Add(httpVerb, routePath, func(c echo.Context) error {
-			// Check if the route includes an `:id` parameter
-			idValue := c.Param("id")
+			// Check if the route includes a parameter
+			paramValue := c.Param(routeParam)
 
 			var args []reflect.Value
 			args = append(args, v)                  // Add the handler instance as the first argument
 			args = append(args, reflect.ValueOf(c)) // Add the Echo context (`c`) as the second argument
 
-			// If an ID is present in the route, pass it as an argument to the method
-			if idValue != "" {
-				var idInt uint
-				_, err := fmt.Sscanf(idValue, "%d", &idInt)
-				if err != nil {
-					log.Error(err)
-				}
-				args = append(args, reflect.ValueOf(idInt))
+			// If a parameter is present in the route, pass it as an argument to the method
+			if paramValue != "" {
+				args = append(args, reflect.ValueOf(paramValue))
 			}
 
 			// Call the handler method with the appropriate arguments

@@ -7,6 +7,7 @@ import (
 )
 
 type UserPayload struct {
+	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	Username    string `json:"username"`
 	Email       string `json:"email"`
@@ -38,6 +39,7 @@ func (c *UserPayload) Validate() error {
 }
 
 type UserResponse struct {
+	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	Username    string `json:"username"`
 	Email       string `json:"email"`
@@ -49,6 +51,7 @@ type UserResponse struct {
 
 func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 	return UserResponse{
+		Id:          user.ID,
 		Name:        user.Name,
 		Username:    user.Username,
 		Email:       user.Email,
@@ -60,6 +63,7 @@ func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 }
 
 type RolePayload struct {
+	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
@@ -76,12 +80,14 @@ func (r *RolePayload) Validate() error {
 }
 
 type RoleResponse struct {
+	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
 func NewRoleResponseFromDomainRole(role domain.Role) RoleResponse {
 	return RoleResponse{
+		Id:          role.ID,
 		Name:        role.Name,
 		Description: role.Description,
 	}
