@@ -13,12 +13,14 @@ import (
 type CrudRest interface {
 	CreateUser(ech echo.Context) error
 	CreateRole(ech echo.Context) error
-	DeleteUserById(ech echo.Context, id uint) error
-	DeleteRoleById(ech echo.Context, id uint) error
-	UpdateUserById(ech echo.Context, id uint) error
-	UpdateRoleById(ech echo.Context, id uint) error
-	GetUserById(ech echo.Context, id uint) error
-	GetRoleById(ech echo.Context, id uint) error
+	DeleteUserById(ech echo.Context, id string) error
+	DeleteRoleById(ech echo.Context, id string) error
+	UpdateUserById(ech echo.Context, id string) error
+	UpdateRoleById(ech echo.Context, id string) error
+	PatchUserById(ech echo.Context, id string) error
+	PatchRoleById(ech echo.Context, id string) error
+	GetUserById(ech echo.Context, id string) error
+	GetRoleById(ech echo.Context, id string) error
 	ListUsers(ech echo.Context) error
 	ListRoles(ech echo.Context) error
 }
@@ -47,7 +49,7 @@ func (c *crudRestStruct) CreateUser(ech echo.Context) error {
 		c.logger.Error(err.Error())
 		return errorhandler.HandleError(ech, err, c.logger)
 	}
-	dUser, err := c.crudService.CreateUser(body.Name, body.Username, body.Email, body.Country, body.Phone, body.CountryCode)
+	dUser, err := c.crudService.CreateUser(body.ToUserDomain())
 	if err != nil {
 		c.logger.Error(err)
 		return errorhandler.HandleError(ech, err, c.logger)
@@ -70,7 +72,7 @@ func (c *crudRestStruct) CreateRole(ech echo.Context) error {
 		c.logger.Error(err.Error())
 		return errorhandler.HandleError(ech, err, c.logger)
 	}
-	dRole, err := c.crudService.CreateRole(body.Name, body.Description)
+	dRole, err := c.crudService.CreateRole(body.ToRoleDomain())
 	if err != nil {
 		c.logger.Error(err)
 		return errorhandler.HandleError(ech, err, c.logger)
@@ -78,34 +80,200 @@ func (c *crudRestStruct) CreateRole(ech echo.Context) error {
 	return ech.JSON(http.StatusOK, models.NewRoleResponseFromDomainRole(dRole))
 }
 
-func (c *crudRestStruct) DeleteUserById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) DeleteUserById(ech echo.Context, stringId string) error {
 	c.logger.Debug("DeleteUser method called")
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestValidationError),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	err = c.crudService.DeleteUserById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
 	return ech.JSON(http.StatusOK, nil)
 }
 
-func (c *crudRestStruct) DeleteRoleById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) DeleteRoleById(ech echo.Context, stringId string) error {
 	c.logger.Debug("DeleteRole method called")
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	err = c.crudService.DeleteRoleById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
 	return ech.JSON(http.StatusOK, nil)
 }
 
-func (c *crudRestStruct) UpdateUserById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) UpdateUserById(ech echo.Context, stringId string) error {
 	c.logger.Debug("UpdateUser method called")
-	return ech.JSON(http.StatusOK, nil)
+	var body models.UserPayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	if err := body.Validate(); err != nil {
+		c.logger.Error(err.Error())
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	dUser, err := c.crudService.UpdateUserById(uint(id), body.ToUserDomain())
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, dUser)
 }
 
-func (c *crudRestStruct) UpdateRoleById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) UpdateRoleById(ech echo.Context, stringId string) error {
 	c.logger.Debug("UpdateRole method called")
-	return ech.JSON(http.StatusOK, nil)
+	var body models.RolePayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	if err := body.Validate(); err != nil {
+		c.logger.Error(err.Error())
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	dRole, err := c.crudService.UpdateRoleById(uint(id), body.ToRoleDomain())
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, models.NewRoleResponseFromDomainRole(dRole))
 }
 
-func (c *crudRestStruct) GetUserById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) PatchUserById(ech echo.Context, stringId string) error {
+	c.logger.Debug("UpdateUser method called")
+	var body models.UserPayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	dUser, err := c.crudService.UpdateUserById(uint(id), body.ToUserDomain())
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, dUser)
+}
+
+func (c *crudRestStruct) PatchRoleById(ech echo.Context, stringId string) error {
+	c.logger.Debug("UpdateRole method called")
+	var body models.RolePayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	dRole, err := c.crudService.UpdateRoleById(uint(id), body.ToRoleDomain())
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, models.NewRoleResponseFromDomainRole(dRole))
+}
+
+func (c *crudRestStruct) GetUserById(ech echo.Context, stringId string) error {
 	c.logger.Debug("GetUser method called")
-	return ech.JSON(http.StatusOK, nil)
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	dUser, err := c.crudService.GetUserById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, models.NewUserResponseFromDomainUser(dUser))
 }
 
-func (c *crudRestStruct) GetRoleById(ech echo.Context, id uint) error {
+func (c *crudRestStruct) GetRoleById(ech echo.Context, stringId string) error {
 	c.logger.Debug("GetRole method called")
-	return ech.JSON(http.StatusOK, nil)
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrRoleRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+	role, err := c.crudService.GetRoleById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, models.NewRoleResponseFromDomainRole(role))
 }
 
 func (c *crudRestStruct) ListUsers(ech echo.Context) error {

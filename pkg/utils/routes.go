@@ -64,7 +64,10 @@ func buildRoutePath(pathPrefix, methodName string) (string, string) {
 	}
 	routePath = pathPrefix + "/" + strings.ToLower(sb.String()) + routePath
 	if routeParam != "" {
-		routePath += fmt.Sprintf("/:%s", routeParam)
+		if routeParam == "id" {
+			routePath += fmt.Sprintf("/:%s", routeParam)
+		}
+		routePath += fmt.Sprintf("/%s/:%s", routeParam, routeParam)
 	}
 	// Combine the processed path and convert it to lowercase
 

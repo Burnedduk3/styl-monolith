@@ -16,6 +16,17 @@ type UserPayload struct {
 	CountryCode string `json:"country_code"`
 }
 
+func (c *UserPayload) ToUserDomain() domain.User {
+	return domain.User{
+		Name:        c.Name,
+		Username:    c.Username,
+		Email:       c.Email,
+		Country:     c.Country,
+		CountryCode: c.CountryCode,
+		Phone:       c.Phone,
+	}
+}
+
 func (c *UserPayload) Validate() error {
 	if validator.IsStringEmpty(c.Name) ||
 		validator.IsStringEmpty(c.Email) ||
@@ -66,6 +77,13 @@ type RolePayload struct {
 	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+func (r *RolePayload) ToRoleDomain() domain.Role {
+	return domain.Role{
+		Name:        r.Name,
+		Description: r.Description,
+	}
 }
 
 func (r *RolePayload) Validate() error {
