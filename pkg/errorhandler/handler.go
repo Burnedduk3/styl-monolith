@@ -34,7 +34,8 @@ func getHTTPStatusCode(errorCode string) int {
 		ErrUserRequestPayloadBadRequestEmptyFields,
 		ErrUserRequestPayloadBadRequestJsonBadlyFormated,
 		ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
-		ErrRoleRequestPayloadBadRequestEmptyFields:
+		ErrRoleRequestPayloadBadRequestEmptyFields,
+		ErrRoleRequestPayloadBadRequestValidationError:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

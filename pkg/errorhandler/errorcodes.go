@@ -15,6 +15,7 @@ const (
 	ErrRoleDatabaseUnableToCompleteOperation         = "ROLE_003"
 	ErrRoleNotFound                                  = "ROLE_004"
 	ErrRoleIncompleteParamsForCompleteUpdate         = "ROLE_005"
+	ErrRoleRequestPayloadBadRequestValidationError   = "ROLE_006"
 )
 
 var errorMessages = map[string]string{
@@ -25,6 +26,7 @@ var errorMessages = map[string]string{
 	ErrRoleRequestPayloadBadRequestEmptyFields:       "request payload for role is wrong, required fields are empty",
 	ErrRoleDatabaseUnableToCompleteOperation:         "unable to complete operation on specified role",
 	ErrUserDatabaseUnableToCompleteOperation:         "unable to complete operation on specified user",
+	ErrRoleRequestPayloadBadRequestValidationError:   "request payload for role is wrong, validation errors on inputs",
 	ErrRoleNotFound:                                  "There is no role with the specified param: %v",
 	ErrUserNotFound:                                  "There is no user with the specified param: %v",
 	ErrRoleIncompleteParamsForCompleteUpdate:         "Incomplete role params for complete update",
