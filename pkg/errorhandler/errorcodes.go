@@ -7,12 +7,14 @@ const (
 	ErrUserRequestPayloadBadRequestJsonBadlyFormated = "USER_003"
 	ErrUserDatabaseUnableToCompleteOperation         = "USER_004"
 	ErrUserNotFound                                  = "USER_005"
+	ErrUserIncompleteParamsForCompleteUpdate         = "USER_006"
 
 	// Role error handler
 	ErrRoleRequestPayloadBadRequestJsonBadlyFormated = "ROLE_001"
 	ErrRoleRequestPayloadBadRequestEmptyFields       = "ROLE_002"
 	ErrRoleDatabaseUnableToCompleteOperation         = "ROLE_003"
 	ErrRoleNotFound                                  = "ROLE_004"
+	ErrRoleIncompleteParamsForCompleteUpdate         = "ROLE_005"
 )
 
 var errorMessages = map[string]string{
@@ -25,6 +27,8 @@ var errorMessages = map[string]string{
 	ErrUserDatabaseUnableToCompleteOperation:         "unable to complete operation on specified user",
 	ErrRoleNotFound:                                  "There is no role with the specified param: %v",
 	ErrUserNotFound:                                  "There is no user with the specified param: %v",
+	ErrRoleIncompleteParamsForCompleteUpdate:         "Incomplete role params for complete update",
+	ErrUserIncompleteParamsForCompleteUpdate:         "Incomplete user params for complete update",
 }
 
 func GetErrorMessage(code string) string {
