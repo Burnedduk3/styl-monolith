@@ -10,7 +10,7 @@ type LoginRest interface {
 	PostLogin(ech echo.Context) error
 	PostLogout(ech echo.Context) error
 	PostRefreshToken(ech echo.Context) error
-	ChangePassword(ech echo.Context) error
+	PatchChangePassword(ech echo.Context) error
 }
 
 type LoginRestStruct struct {
@@ -37,7 +37,7 @@ func (l *LoginRestStruct) PostRefreshToken(c echo.Context) error {
 	return nil
 }
 
-func (l *LoginRestStruct) ChangePassword(c echo.Context) error {
+func (l *LoginRestStruct) PatchChangePassword(c echo.Context) error {
 	// TODO: Implement UpdatePassword
 	return nil
 }

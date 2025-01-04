@@ -18,7 +18,6 @@ func getHTTPVerbFromMethodName(methodName string) string {
 		"Delete": "DELETE",
 		"Patch":  "PATCH",
 		"List":   "GET",
-		"Change": "PUT",
 	}
 
 	// Check the prefix of the methodName

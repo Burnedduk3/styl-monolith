@@ -17,6 +17,8 @@ type CrudRest interface {
 	DeleteRoleById(ech echo.Context, id uint) error
 	UpdateUserById(ech echo.Context, id uint) error
 	UpdateRoleById(ech echo.Context, id uint) error
+	PatchUserById(ech echo.Context, id uint) error
+	PatchRoleById(ech echo.Context, id uint) error
 	GetUserById(ech echo.Context, id uint) error
 	GetRoleById(ech echo.Context, id uint) error
 	ListUsers(ech echo.Context) error
@@ -95,6 +97,16 @@ func (c *crudRestStruct) UpdateUserById(ech echo.Context, id uint) error {
 
 func (c *crudRestStruct) UpdateRoleById(ech echo.Context, id uint) error {
 	c.logger.Debug("UpdateRole method called")
+	return ech.JSON(http.StatusOK, nil)
+}
+
+func (c *crudRestStruct) PatchUserById(ech echo.Context, id uint) error {
+	c.logger.Debug("DeleteRole method called")
+	return ech.JSON(http.StatusOK, nil)
+}
+
+func (c *crudRestStruct) PatchRoleById(ech echo.Context, id uint) error {
+	c.logger.Debug("DeleteRole method called")
 	return ech.JSON(http.StatusOK, nil)
 }
 
