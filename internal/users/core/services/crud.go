@@ -80,8 +80,8 @@ func (c *CrudServiceStruct) GetRoleById(id uint) (domain.Role, error) {
 }
 
 func (c *CrudServiceStruct) GetRoleByName(name string) (domain.Role, error) {
-	//TODO implement me
-	panic("implement me")
+	return domain.Role{}, nil
+
 }
 
 func (c *CrudServiceStruct) GetUserById(id uint) (domain.User, error) {
@@ -90,13 +90,11 @@ func (c *CrudServiceStruct) GetUserById(id uint) (domain.User, error) {
 }
 
 func (c *CrudServiceStruct) GetUserByEmail(email string) (domain.User, error) {
-	//TODO implement me
-	panic("implement me")
+	return domain.User{}, nil
 }
 
 func (c *CrudServiceStruct) GetUserByUsername(username string) (domain.User, error) {
-	//TODO implement me
-	panic("implement me")
+	return domain.User{}, nil
 }
 
 func (c *CrudServiceStruct) ListRoles(page, size int) ([]domain.Role, int, error) {
