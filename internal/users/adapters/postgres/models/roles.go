@@ -9,10 +9,14 @@ type Role struct {
 	gorm.Model
 	Name        string `gorm:"unique"`
 	Description string
+	Users       []User
 }
 
 func NewPostgresRoleFromDomainRole(role domain.Role) Role {
 	return Role{
+		Model: gorm.Model{
+			ID: role.ID,
+		},
 		Name:        role.Name,
 		Description: role.Description,
 	}

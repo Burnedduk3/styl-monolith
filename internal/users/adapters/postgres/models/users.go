@@ -21,7 +21,10 @@ type User struct {
 }
 
 func NewPostgresUserFromDomainUser(user domain.User) User {
-	return User{
+	u := User{
+		Model: gorm.Model{
+			ID: user.ID,
+		},
 		Username:    user.Username,
 		Name:        user.Name,
 		Phone:       user.Phone,
@@ -32,16 +35,23 @@ func NewPostgresUserFromDomainUser(user domain.User) User {
 		LastIp:      &user.LastIp,
 		LastLogin:   user.LastLogin,
 	}
+	if user.Role.ID != 0 {
+		u.RoleID = user.Role.ID
+	}
+	return u
 }
 
 func (u *User) ToUserDomain() domain.User {
 	mappedUser := domain.User{
-		ID:          u.Model.ID,
-		Username:    u.Username,
-		Name:        u.Name,
-		Email:       u.Email,
-		Phone:       u.Phone,
-		Country:     u.Country,
+		ID:       u.Model.ID,
+		Username: u.Username,
+		Name:     u.Name,
+		Email:    u.Email,
+		Phone:    u.Phone,
+		Country:  u.Country,
+		Role: domain.Role{
+			ID: u.RoleID,
+		},
 		CountryCode: u.CountryCode,
 		LastLogin:   u.LastLogin,
 		Created:     u.CreatedAt,

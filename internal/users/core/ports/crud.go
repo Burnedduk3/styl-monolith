@@ -12,6 +12,7 @@ type UserPort interface {
 	GetUserByPhone(phone string) (domain.User, error)
 	GetUserByUsername(username string) (domain.User, error)
 	PartialUserUpdate(id uint, user domain.User) (domain.User, error)
+	UpdateUserRole(user domain.User) (domain.User, error)
 }
 
 type RolePort interface {

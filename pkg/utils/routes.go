@@ -40,10 +40,10 @@ func buildRoutePath(pathPrefix, methodName, httpVerb string) (string, string) {
 	if strings.Contains(strings.ToLower(methodName), "by") {
 		// split the function name by the word 'by' and use the second part as param
 		splittedName := strings.Split(strings.ToLower(methodName), "by")
-		extractedRouteName = strings.ToLower(splittedName[0])
+		extractedRouteName = splittedName[0]
 		routeParam = strings.ToLower(splittedName[1])
 	} else {
-		extractedRouteName = strings.ToLower(methodName)
+		extractedRouteName = methodName
 	}
 	// Strip HTTP verb prefix from the method name
 	verbs := []string{"Get", "Delete", "Update", "Create", "Patch", "List", "Post"}

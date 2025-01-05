@@ -19,6 +19,7 @@ type CrudService interface {
 	DeleteUserById(id uint) error
 	DeleteRoleById(id uint) error
 	UpdateUserById(id uint, user domain.User) (domain.User, error)
+	UpdateUserRole(userId, roleId uint) (domain.User, error)
 	UpdateRoleById(id uint, role domain.Role) (domain.Role, error)
 	PartialUpdateUserById(id uint, user domain.User) (domain.User, error)
 	PartialUpdateRoleById(id uint, role domain.Role) (domain.Role, error)
@@ -92,6 +93,12 @@ func (c *CrudServiceStruct) GetUserById(id uint) (domain.User, error) {
 	user, err := c.userCrudRepo.GetUserByID(id)
 	if err != nil {
 		return domain.User{}, err
+	}
+	if user.Role.ID != 0 {
+		user.Role, err = c.GetRoleById(user.Role.ID)
+		if err != nil {
+			return domain.User{}, err
+		}
 	}
 	return user, nil
 }
@@ -176,11 +183,11 @@ func (c *CrudServiceStruct) UpdateUserById(id uint, user domain.User) (domain.Us
 	oldUser.Email = user.Email
 	oldUser.Country = user.Country
 	oldUser.CountryCode = user.CountryCode
-	newRole, err := c.userCrudRepo.UpdateUser(oldUser)
+	newUser, err := c.userCrudRepo.UpdateUser(oldUser)
 	if err != nil {
 		return domain.User{}, err
 	}
-	return newRole, nil
+	return newUser, nil
 }
 
 func (c *CrudServiceStruct) PartialUpdateRoleById(id uint, role domain.Role) (domain.Role, error) {
@@ -232,4 +239,21 @@ func (c *CrudServiceStruct) PartialUpdateUserById(id uint, user domain.User) (do
 		return domain.User{}, err
 	}
 	return newRole, nil
+}
+
+func (c *CrudServiceStruct) UpdateUserRole(userId, roleId uint) (domain.User, error) {
+	role, err := c.GetRoleById(roleId)
+	if err != nil {
+		return domain.User{}, err
+	}
+	user, err := c.GetUserById(userId)
+	if err != nil {
+		return domain.User{}, err
+	}
+	user.Role = role
+	user, err = c.userCrudRepo.UpdateUserRole(user)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return user, nil
 }

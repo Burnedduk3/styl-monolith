@@ -61,7 +61,7 @@ func (r *UserRepository) ListUsers(page, size int) ([]domain.User, int, error) {
 // Returns a domain.User and an error if the operation fails.
 func (r *UserRepository) GetUserByID(id uint) (domain.User, error) {
 	var user models.User
-	result := r.conn.First(&user, id)
+	result := r.conn.Model(&user).First(&user, id)
 	if result.Error != nil {
 		domainError := errorhandler.NewDomainError(
 			errorhandler.ErrUserDatabaseUnableToCompleteOperation,
@@ -69,6 +69,7 @@ func (r *UserRepository) GetUserByID(id uint) (domain.User, error) {
 			result.Error)
 		return domain.User{}, domainError
 	}
+
 	return user.ToUserDomain(), nil
 }
 
@@ -162,4 +163,20 @@ func (r *UserRepository) PartialUserUpdate(id uint, updatedUser domain.User) (do
 		return domain.User{}, domainError
 	}
 	return rUser.ToUserDomain(), nil
+}
+
+func (r *UserRepository) UpdateUserRole(user domain.User) (domain.User, error) {
+	rUser := models.NewPostgresUserFromDomainUser(user)
+	result := r.conn.Preload("Role").Model(&models.User{}).Where("id = ?", user.ID).Updates(rUser)
+	if result.Error != nil {
+		domainError := errorhandler.NewDomainError(
+			errorhandler.ErrUserDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserDatabaseUnableToCompleteOperation),
+			result.Error)
+		return domain.User{}, domainError
+	}
+	returnUser := rUser.ToUserDomain()
+	returnUser.Role.Name = user.Role.Name
+	returnUser.Role.Description = user.Role.Description
+	return returnUser, nil
 }

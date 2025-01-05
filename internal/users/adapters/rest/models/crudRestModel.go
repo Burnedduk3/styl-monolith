@@ -58,10 +58,11 @@ type UserResponse struct {
 	Phone       string `json:"phone"`
 	CountryCode string `json:"country_code"`
 	Status      string `json:"status"`
+	Role        RoleResponse
 }
 
 func NewUserResponseFromDomainUser(user domain.User) UserResponse {
-	return UserResponse{
+	response := UserResponse{
 		Id:          user.ID,
 		Name:        user.Name,
 		Username:    user.Username,
@@ -71,6 +72,10 @@ func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 		CountryCode: user.CountryCode,
 		Status:      string(user.Status),
 	}
+	if user.Role.ID != 0 {
+		response.Role = NewRoleResponseFromDomainRole(user.Role)
+	}
+	return response
 }
 
 type RolePayload struct {
@@ -116,4 +121,8 @@ type PaginationResponse struct {
 	PageSize    int         `json:"page_size"`
 	TotalPages  int         `json:"total_pages"`
 	Data        interface{} `json:"data"`
+}
+
+type UpdateUserRolePayload struct {
+	RoleId uint `json:"role_id"`
 }
