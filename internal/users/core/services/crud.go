@@ -113,7 +113,7 @@ func (c *CrudServiceStruct) GetUserByUsername(username string) (domain.User, err
 }
 
 func (c *CrudServiceStruct) GetUserByPhone(phone string) (domain.User, error) {
-	user, err := c.userCrudRepo.GetUserByUsername(phone)
+	user, err := c.userCrudRepo.GetUserByPhone(phone)
 	if err != nil {
 		return domain.User{}, err
 	}

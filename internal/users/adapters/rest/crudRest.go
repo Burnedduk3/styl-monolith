@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"styl-monolith/internal/users/adapters/rest/models"
+	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/services"
 	"styl-monolith/pkg/errorhandler"
 )
@@ -21,6 +22,7 @@ type CrudRest interface {
 	PatchRoleById(ech echo.Context, id string) error
 	GetUserById(ech echo.Context, id string) error
 	GetRoleById(ech echo.Context, id string) error
+	GetUserByQuery(ech echo.Context) error
 	ListUsers(ech echo.Context) error
 	ListRoles(ech echo.Context) error
 }
@@ -239,7 +241,7 @@ func (c *crudRestStruct) PatchRoleById(ech echo.Context, stringId string) error 
 }
 
 func (c *crudRestStruct) GetUserById(ech echo.Context, stringId string) error {
-	c.logger.Debug("GetUser method called")
+	c.logger.Debug("GetUserById method called")
 	id, err := strconv.ParseUint(stringId, 10, 64)
 	if err != nil {
 		domErr := errorhandler.NewDomainError(
@@ -250,6 +252,29 @@ func (c *crudRestStruct) GetUserById(ech echo.Context, stringId string) error {
 		return errorhandler.HandleError(ech, domErr, c.logger)
 	}
 	dUser, err := c.crudService.GetUserById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+	return ech.JSON(http.StatusOK, models.NewUserResponseFromDomainUser(dUser))
+}
+
+func (c *crudRestStruct) GetUserByQuery(ech echo.Context) error {
+	c.logger.Debug("GetUserByPhone method called")
+	var dUser domain.User
+	var err error
+	phone := ech.QueryParam("phone")
+	if phone != "" {
+		dUser, err = c.crudService.GetUserByPhone(phone)
+	}
+	username := ech.QueryParam("username")
+	if username != "" {
+		dUser, err = c.crudService.GetUserByUsername(username)
+	}
+	email := ech.QueryParam("email")
+	if email != "" {
+		dUser, err = c.crudService.GetUserByEmail(email)
+	}
 	if err != nil {
 		c.logger.Error(err)
 		return errorhandler.HandleError(ech, err, c.logger)

@@ -32,7 +32,7 @@ func getHTTPVerbFromMethodName(methodName string) string {
 }
 
 // buildRoutePath determines the route path from a method's name and optionally adds route parameters.
-func buildRoutePath(pathPrefix, methodName string) (string, string) {
+func buildRoutePath(pathPrefix, methodName, httpVerb string) (string, string) {
 	var sb strings.Builder
 	routePath := ""
 	routeParam := ""
@@ -66,7 +66,6 @@ func buildRoutePath(pathPrefix, methodName string) (string, string) {
 		if routeParam == "id" {
 			routePath += fmt.Sprintf("/:%s", routeParam)
 		}
-		routePath += fmt.Sprintf("/%s/:%s", routeParam, routeParam)
 	}
 	// Combine the processed path and convert it to lowercase
 
@@ -80,8 +79,8 @@ func RegisterRoutesAutomatically(e *echo.Echo, handler interface{}, methodPrefix
 
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)
-		routePath, routeParam := buildRoutePath(methodPrefix, method.Name)
 		httpVerb := getHTTPVerbFromMethodName(method.Name)
+		routePath, routeParam := buildRoutePath(methodPrefix, method.Name, httpVerb)
 		log.Debug(fmt.Sprintf("http_verb: %s route_path: %s", httpVerb, routePath))
 
 		// Dynamic route registration
