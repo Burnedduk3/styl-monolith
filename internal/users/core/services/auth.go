@@ -2,10 +2,12 @@ package services
 
 import (
 	"github.com/sirupsen/logrus"
+	"styl-monolith/internal/users/core/ports"
 )
 
 type LoginServiceStruct struct {
-	logger *logrus.Logger
+	logger  *logrus.Logger
+	awsAuth ports.LoginPort
 }
 
 type LoginService interface {
@@ -15,9 +17,10 @@ type LoginService interface {
 	ChangePassword() error
 }
 
-func NewLoginService(log *logrus.Logger) LoginService {
+func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService {
 	return &LoginServiceStruct{
-		logger: log,
+		logger:  log,
+		awsAuth: loginPort,
 	}
 }
 

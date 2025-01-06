@@ -10,7 +10,6 @@ import (
 	"sync"
 )
 
-// Singleton struct for Cognito client
 type CognitoClient struct {
 	client *cognitoidentityprovider.Client
 }
