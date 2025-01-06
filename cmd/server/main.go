@@ -25,6 +25,7 @@ func init() {
 	viper.SetDefault("DB_SSLMODE", "disable")
 	viper.SetDefault("DB_PORT", "5432")
 	viper.SetDefault("LOG_LEVEL", "debug") // Default log level
+	viper.SetDefault("AWS_REGION", "us-east-1")
 
 	// Verify required configurations
 	requiredVars := []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_PASSWORD", "DB_SSLMODE"}
@@ -56,6 +57,7 @@ func main() {
 	e := echo.New()
 	go func() {
 		RegisterUsersDomainRoutes(e, logger)
+		logger.Info("Starting Echo server on port 1323")
 		if err := e.Start(":1323"); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("Failed to start Echo server: %v", err)
 		}

@@ -5,8 +5,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"styl-monolith/internal/users/adapters/postgres/models"
-	"styl-monolith/pkg/aws"
 	log "styl-monolith/pkg/logger"
+	"styl-monolith/pkg/postgres"
 )
 
 // init configures the application by loading environment variables and setting up the logger.
@@ -39,7 +39,7 @@ func main() {
 	}
 	logger := log.GetLogger(level)
 
-	databaseClient := aws.GetDatabaseInstance(logger)
+	databaseClient := postgres.GetDatabaseInstance(logger)
 	db := databaseClient.GetDB()
 	// Perform database migration
 	err = db.AutoMigrate(&models.User{})

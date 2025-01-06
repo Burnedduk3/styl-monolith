@@ -1,4 +1,4 @@
-package aws
+package postgres
 
 import (
 	"fmt"
@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Singleton struct for database instance
 type Database struct {
 	conn *gorm.DB
 }

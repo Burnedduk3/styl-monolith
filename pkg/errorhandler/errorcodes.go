@@ -18,6 +18,7 @@ const (
 	ErrRoleRequestPayloadBadRequestValidationError   = "ROLE_006"
 )
 
+// errorMessages defines a mapping of error codes to their corresponding descriptive error messages.
 var errorMessages = map[string]string{
 	ErrUserRequestPayloadBadRequestValidationError:   "request payload is wrong, had validation errors on inputs",
 	ErrUserRequestPayloadBadRequestEmptyFields:       "request payload is wrong, Required fields are empty",
@@ -27,12 +28,14 @@ var errorMessages = map[string]string{
 	ErrRoleDatabaseUnableToCompleteOperation:         "unable to complete operation on specified role",
 	ErrUserDatabaseUnableToCompleteOperation:         "unable to complete operation on specified user",
 	ErrRoleRequestPayloadBadRequestValidationError:   "request payload for role is wrong, validation errors on inputs",
-	ErrRoleNotFound:                                  "There is no role with the specified param: %v",
-	ErrUserNotFound:                                  "There is no user with the specified param: %v",
-	ErrRoleIncompleteParamsForCompleteUpdate:         "Incomplete role params for complete update",
-	ErrUserIncompleteParamsForCompleteUpdate:         "Incomplete user params for complete update",
+	ErrRoleNotFound:                          "There is no role with the specified param: %v",
+	ErrUserNotFound:                          "There is no user with the specified param: %v",
+	ErrRoleIncompleteParamsForCompleteUpdate: "Incomplete role params for complete update",
+	ErrUserIncompleteParamsForCompleteUpdate: "Incomplete user params for complete update",
 }
 
+// GetErrorMessage returns a human-readable error message corresponding to the provided error code.
+// If the error code does not match any predefined messages, it returns "unknown error".
 func GetErrorMessage(code string) string {
 	if msg, ok := errorMessages[code]; ok {
 		return msg

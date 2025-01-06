@@ -5,11 +5,13 @@ import (
 	"styl-monolith/internal/users/adapters/postgres"
 	userRest "styl-monolith/internal/users/adapters/rest"
 	userService "styl-monolith/internal/users/core/services"
-	"styl-monolith/pkg/aws"
+	postgresClient "styl-monolith/pkg/postgres"
 )
 
+// BuildUserCrudDomainHandler sets up and returns a user CRUD domain handler with all dependencies injected properly.
+// It initializes database connection, repositories, and services required to handle user CRUD operations.
 func BuildUserCrudDomainHandler(log *logrus.Logger) userRest.CrudRest {
-	databaseClient := aws.GetDatabaseInstance(log)
+	databaseClient := postgresClient.GetDatabaseInstance(log)
 	userCrudRepository := postgres.NewUserRepository(log, databaseClient.GetDB())
 	roleCrudRepository := postgres.NewRoleRepository(log, databaseClient.GetDB())
 	crudService := userService.NewCrudService(log, userCrudRepository, roleCrudRepository)
@@ -17,6 +19,7 @@ func BuildUserCrudDomainHandler(log *logrus.Logger) userRest.CrudRest {
 	return handler
 }
 
+// BuildLoginUserDomainHandler constructs and returns a LoginRest handler for managing user login-related functionalities.
 func BuildLoginUserDomainHandler(log *logrus.Logger) userRest.LoginRest {
 	loginService := userService.NewLoginService(log)
 	handler := userRest.NewLoginRestUser(&loginService, log)
