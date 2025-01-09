@@ -4,11 +4,12 @@ import "styl-monolith/internal/users/core/domain"
 
 type LoginPort interface {
 	SignUpInCognito(user domain.User) (domain.User, error)
-	GetUserByEmail(email string) (domain.User, error)
-	SignInCognito(email, password string) (string, error)
-	SaveTokensToDynamoDB(token string, user domain.User) error
-	GetTokensFromDynamoDB(token string) (string, string, error)
-	RefreshTokensWithCognito(refreshToken string) (string, string, error)
-	SignOutCognito(token string) error
-	DeleteTokensFromDynamoDB(token string) error
+	SignInCognito(email, password string) (domain.UserAuth, error)
+	SaveTokensToDynamoDB(userAuth domain.UserAuth) error
+	FetchUserFromDatabase(email string) (domain.User, error)
+	GetTokensFromDynamoDB(tokenId string) (domain.UserAuth, error)
+	GetTokensFromDynamoByEmail(email string) (domain.UserAuth, error)
+	RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.UserAuth, error)
+	SignOutCognito(tokenId string) error
+	DeleteTokensFromDynamoDB(tokenId string) error
 }

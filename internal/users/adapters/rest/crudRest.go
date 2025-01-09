@@ -197,6 +197,14 @@ func (c *crudRestStruct) PatchUserById(ech echo.Context, stringId string) error 
 		return errorhandler.HandleError(ech, domErr, c.logger)
 	}
 	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
 	dUser, err := c.crudService.PartialUpdateUserById(uint(id), body.ToUserDomain())
 	if err != nil {
 		c.logger.Error(err)
@@ -311,6 +319,10 @@ func (c *crudRestStruct) ListUsers(ech echo.Context) error {
 	}
 	var users []models.UserResponse
 	dUsers, totalPages, err := c.crudService.ListUsers(page, size)
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
 	for _, dUser := range dUsers {
 		users = append(users, models.NewUserResponseFromDomainUser(dUser))
 	}
@@ -340,6 +352,10 @@ func (c *crudRestStruct) ListRoles(ech echo.Context) error {
 	}
 	var roles []models.RoleResponse
 	dRoles, totalPages, err := c.crudService.ListRoles(page, size)
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
 	for _, dRole := range dRoles {
 		roles = append(roles, models.NewRoleResponseFromDomainRole(dRole))
 	}

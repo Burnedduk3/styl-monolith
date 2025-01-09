@@ -3,12 +3,16 @@ package awsAuth
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io"
@@ -34,7 +38,6 @@ func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cog
 
 func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
 	// Prepare user attributes for the new user
-
 	userPoolID := viper.GetString("AWS_COGNITO_USER_POOL_ID")
 	userAttributes := []types.AttributeType{
 		{
@@ -124,7 +127,12 @@ func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
 	if err != nil {
 		return domain.User{}, err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(resp.Body)
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -135,55 +143,129 @@ func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return domain.User{}, err
 	}
+
 	umarshaledUser := models.UserResponse{}
-	err = json.Unmarshal(body, &umarshaledUser)
+	_ = json.Unmarshal(body, &umarshaledUser)
 	return umarshaledUser.ToDomainUser(), nil
 }
 
-func (a *AwsAuth) GetUserByEmail(email string) (domain.User, error) {
-	// TODO: Implement logic to fetch user information by email
-	// Example steps:
-	// - Query Cognito or DynamoDB to fetch user details (depending on the implementation)
-	// - Populate and return the User domain object
-	// - Handle errors
-	return domain.User{}, nil
+// calculateSecretHash calculates Cognito's required SECRET_HASH
+func (a *AwsAuth) calculateSecretHash(clientSecret, clientId, username string) string {
+	h := hmac.New(sha256.New, []byte(clientSecret))
+	h.Write([]byte(username + clientId))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func (a *AwsAuth) SignInCognito(email, password string) (string, error) {
-	// TODO: Implement logic to sign in the user via Cognito
-	// Example steps:
-	// - Use CognitoIdentityProvider's AdminInitiateAuth or InitiateAuth API
-	// - Pass email and password to authenticate the user
-	// - Return generated access token or error
-	return "", nil
+func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error) {
+	// Initiate the authentication request
+	clientId := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_ID")
+	clientSecret := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_SECRET")
+	secretHash := a.calculateSecretHash(clientSecret, clientId, email)
+	authInput := &cognitoidentityprovider.InitiateAuthInput{
+		AuthFlow: types.AuthFlowTypeUserPasswordAuth,
+		ClientId: aws.String(clientId),
+		AuthParameters: map[string]string{
+			"USERNAME":    email,
+			"PASSWORD":    password,
+			"SECRET_HASH": secretHash,
+		},
+	}
+	authResponse, err := a.cognitoClient.InitiateAuth(context.TODO(), authInput)
+	if err != nil {
+		return domain.UserAuth{}, fmt.Errorf("authentication failed: %v", err)
+	}
+	userAuth := domain.UserAuth{
+		AccessToken:  *authResponse.AuthenticationResult.AccessToken,
+		RefreshToken: *authResponse.AuthenticationResult.RefreshToken,
+		IdToken:      *authResponse.AuthenticationResult.IdToken,
+		UserId:       0,
+		Email:        email,
+	}
+	return userAuth, nil
 }
 
-func (a *AwsAuth) SaveTokensToDynamoDB(token string, user domain.User) error {
-	// TODO: Implement logic to save tokens in DynamoDB
-	// Example steps:
-	// - Use DynamoDB PutItem API to save the token and user information
-	// - Handle errors
+func (a *AwsAuth) FetchUserFromDatabase(email string) (domain.User, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("api/v1/user?email=%s", email)), nil)
+	if err != nil {
+		return domain.User{}, errorhandler.NewDomainError(
+			errorhandler.ErrUserNotFound,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserNotFound),
+			err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return domain.User{}, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(resp.Body)
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	// Check for non-2xx status codes and handle errors
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return domain.User{}, err
+	}
+
+	umarshaledUser := models.UserResponse{}
+	_ = json.Unmarshal(body, &umarshaledUser)
+	return umarshaledUser.ToDomainUser(), nil
+}
+
+func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
+	input := &dynamodb.PutItemInput{
+		TableName: aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
+		Item: map[string]dynamodbTypes.AttributeValue{
+			"id_token_cognito": &dynamodbTypes.AttributeValueMemberS{Value: userAuth.IdToken},
+			"access_token":     &dynamodbTypes.AttributeValueMemberS{Value: userAuth.AccessToken},
+			"refresh_token":    &dynamodbTypes.AttributeValueMemberS{Value: userAuth.RefreshToken},
+			"token_id":         &dynamodbTypes.AttributeValueMemberS{Value: userAuth.IdTokenHash},
+			"user_id":          &dynamodbTypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", userAuth.UserId)},
+			"user_email":       &dynamodbTypes.AttributeValueMemberS{Value: userAuth.Email},
+		},
+	}
+
+	_, err := a.dynamoClient.PutItem(context.TODO(), input)
+	if err != nil {
+		return fmt.Errorf("failed to save tokens to DynamoDB: %v", err)
+	}
 	return nil
 }
 
-func (a *AwsAuth) GetTokensFromDynamoDB(token string) (string, string, error) {
+func (a *AwsAuth) GetTokensFromDynamoDB(tokenId string) (domain.UserAuth, error) {
 	// TODO: Implement logic to retrieve tokens from DynamoDB
 	// Example steps:
 	// - Use DynamoDB GetItem API to fetch the tokens associated with the provided key
 	// - Return access and refresh tokens (or error if not found)
-	return "", "", nil
+	return domain.UserAuth{}, nil
 }
 
-func (a *AwsAuth) RefreshTokensWithCognito(refreshToken string) (string, string, error) {
+func (a *AwsAuth) GetTokensFromDynamoByEmail(email string) (domain.UserAuth, error) {
+	// TODO: Implement logic to retrieve tokens from DynamoDB
+	// Example steps:
+	// - Use DynamoDB GetItem API to fetch the tokens associated with the provided key
+	// - Return access and refresh tokens (or error if not found)
+	return domain.UserAuth{}, nil
+}
+
+func (a *AwsAuth) RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.UserAuth, error) {
 	// TODO: Implement logic to refresh tokens using Cognito
 	// Example steps:
 	// - Use CognitoIdentityProvider's InitiateAuth or AdminInitiateAuth API
 	// - Pass the refresh token to generate new access and refresh tokens
 	// - Return new tokens or error
-	return "", "", nil
+	return domain.UserAuth{}, nil
 }
 
-func (a *AwsAuth) SignOutCognito(token string) error {
+func (a *AwsAuth) SignOutCognito(tokenId string) error {
 	// TODO: Implement logic to sign out user in Cognito
 	// Example steps:
 	// - Use CognitoIdentityProvider's GlobalSignOut or RevokeToken API
@@ -192,7 +274,7 @@ func (a *AwsAuth) SignOutCognito(token string) error {
 	return nil
 }
 
-func (a *AwsAuth) DeleteTokensFromDynamoDB(token string) error {
+func (a *AwsAuth) DeleteTokensFromDynamoDB(tokenId string) error {
 	// TODO: Implement logic to delete tokens from DynamoDB
 	// Example steps:
 	// - Use DynamoDB DeleteItem API to remove the token and its associated data
