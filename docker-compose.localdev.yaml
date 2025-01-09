@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: local-app
-    container_name: styl_monolith_local
+    container_name: local
     restart: always
     ports:
       - "80:1323"
