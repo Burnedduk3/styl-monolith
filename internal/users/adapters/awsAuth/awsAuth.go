@@ -1,29 +1,143 @@
 package awsAuth
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"io"
+	"net/http"
+	"styl-monolith/internal/users/adapters/rest/models"
 	"styl-monolith/internal/users/core/domain"
+	"styl-monolith/pkg/errorhandler"
+	"styl-monolith/pkg/logger"
+	"styl-monolith/pkg/utils"
 )
 
 type AwsAuth struct {
 	log           *logrus.Logger
 	dynamoClient  *dynamodb.Client
 	cognitoClient *cognitoidentityprovider.Client
+	httpClient    *http.Client
+	baseUrl       string
 }
 
-func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client) *AwsAuth {
-	return &AwsAuth{log: log, dynamoClient: dynamoClient, cognitoClient: cognitoClient}
+func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client, client *http.Client, baseUrl string) *AwsAuth {
+	return &AwsAuth{log: log, dynamoClient: dynamoClient, cognitoClient: cognitoClient, httpClient: client, baseUrl: baseUrl}
 }
 
-func (a *AwsAuth) SignUpInCognito(user domain.User) (string, error) {
-	// TODO: Implement logic to sign up user in Cognito using a.cognitoClient
-	// Example steps:
-	// - Use CognitoIdentityProvider's SignUp API to register the user
-	// - Return user ID and/or credentials from the Cognito response
-	// - Handle errors
-	return "", nil
+func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
+	// Prepare user attributes for the new user
+
+	userPoolID := viper.GetString("AWS_COGNITO_USER_POOL_ID")
+	userAttributes := []types.AttributeType{
+		{
+			Name:  aws.String("email"),
+			Value: aws.String(user.Email),
+		},
+		{
+			Name:  aws.String("phone_number"),
+			Value: aws.String(fmt.Sprintf("%s%s", user.CountryCode, user.Phone)),
+		},
+		{
+			Name:  aws.String("birthdate"),
+			Value: aws.String(user.Birthday),
+		},
+		{
+			Name:  aws.String("given_name"),
+			Value: aws.String(user.Name),
+		},
+		{
+			Name:  aws.String("family_name"),
+			Value: aws.String(user.LastName),
+		},
+		{
+			Name:  aws.String("email_verified"), // Ensure email is marked as verified
+			Value: aws.String("true"),
+		},
+		{
+			Name:  aws.String("phone_number_verified"), // Ensure phone number is marked as verified
+			Value: aws.String("true"),
+		},
+	}
+
+	tempPassword := utils.GenerateRandomString(8)
+
+	// Create the AdminCreateUserInput
+	input := &cognitoidentityprovider.AdminCreateUserInput{
+		UserPoolId:        &userPoolID,    // Cognito User Pool ID
+		Username:          &user.Username, // The user's username
+		UserAttributes:    userAttributes,
+		TemporaryPassword: aws.String(tempPassword),        // Optional: Set a temporary password
+		MessageAction:     types.MessageActionTypeSuppress, // Suppress welcome email (optional)
+	}
+	a.log.Info(fmt.Sprintf(logger.CreatingUserWithEmail, user.Email))
+	// Call Cognito AdminCreateUser API
+	_, err := a.cognitoClient.AdminCreateUser(context.TODO(), input)
+	if err != nil {
+
+		return domain.User{}, errorhandler.NewDomainError(
+			errorhandler.ErrCreatingUserInCognitoUserPool,
+			errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool),
+			err)
+	}
+	a.log.Info(logger.SettingUserPassword)
+	// Confirm the new password as definitive
+	_, err = a.cognitoClient.AdminSetUserPassword(context.TODO(), &cognitoidentityprovider.AdminSetUserPasswordInput{
+		UserPoolId: &userPoolID,
+		Username:   &user.Username,
+		Password:   aws.String(user.Password), // Set the definitive password
+		Permanent:  true,                      // Mark the password as permanent
+	})
+	if err != nil {
+		return domain.User{}, errorhandler.NewDomainError(
+			errorhandler.ErrSettingPermanentPassword,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
+			err)
+	}
+	a.log.Info(logger.SuccessfullyCreatedCognitoUser)
+	a.log.Info(fmt.Sprintf(logger.CreateUserOnDB, user.Email))
+	payloadBytes, err := json.Marshal(user.UserToUserPayload())
+	if err != nil {
+		return domain.User{}, errorhandler.NewDomainError(
+			errorhandler.ErrSettingPermanentPassword,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
+			err)
+	}
+	// Create a new POST request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", a.baseUrl, "api/v1/user"), bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return domain.User{}, errorhandler.NewDomainError(
+			errorhandler.ErrSettingPermanentPassword,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
+			err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return domain.User{}, err
+	}
+	defer resp.Body.Close()
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	// Check for non-2xx status codes and handle errors
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return domain.User{}, err
+	}
+	umarshaledUser := models.UserResponse{}
+	err = json.Unmarshal(body, &umarshaledUser)
+	return umarshaledUser.ToDomainUser(), nil
 }
 
 func (a *AwsAuth) GetUserByEmail(email string) (domain.User, error) {

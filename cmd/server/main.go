@@ -26,6 +26,8 @@ func init() {
 	viper.SetDefault("DB_PORT", "5432")
 	viper.SetDefault("LOG_LEVEL", "debug") // Default log level
 	viper.SetDefault("AWS_REGION", "us-east-1")
+	viper.SetDefault("AWS_COGNITO_USER_POOL_ID", "us-east-1_4fXnfhGa9")
+	viper.SetDefault("API_BASE_URL", "http://127.0.0.1:1323")
 
 	// Verify required configurations
 	requiredVars := []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_PASSWORD", "DB_SSLMODE"}

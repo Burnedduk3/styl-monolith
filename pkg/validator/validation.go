@@ -10,7 +10,7 @@ func ValidateStringIsCountryCode(s string) bool {
 
 // ValidateStringIsEmail checks if the provided string matches the format of a valid email address and returns a boolean result.
 func ValidateStringIsEmail(s string) bool {
-	regex := regexp.MustCompile(`^[\w-]+@([\w-]+\.)+[\w-]{2,4}$`)
+	regex := regexp.MustCompile(`^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$`)
 	return regex.MatchString(s)
 }
 

@@ -6,53 +6,12 @@ import (
 	"styl-monolith/pkg/validator"
 )
 
-type UserPayload struct {
-	Id          uint   `json:"id"`
-	Name        string `json:"name"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	Country     string `json:"country"`
-	Phone       string `json:"phone"`
-	CountryCode string `json:"country_code"`
-}
-
-func (c *UserPayload) ToUserDomain() domain.User {
-	return domain.User{
-		Name:        c.Name,
-		Username:    c.Username,
-		Email:       c.Email,
-		Country:     c.Country,
-		CountryCode: c.CountryCode,
-		Phone:       c.Phone,
-	}
-}
-
-func (c *UserPayload) Validate() error {
-	if validator.IsStringEmpty(c.Name) ||
-		validator.IsStringEmpty(c.Email) ||
-		validator.IsStringEmpty(c.Country) ||
-		validator.IsStringEmpty(c.CountryCode) ||
-		validator.IsStringEmpty(c.Phone) {
-		return errorhandler.NewDomainError(
-			errorhandler.ErrUserRequestPayloadBadRequestEmptyFields,
-			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestEmptyFields),
-			nil)
-	}
-	if !validator.ValidateStringIsCountryCode(c.CountryCode) ||
-		!validator.ValidateStringIsEmail(c.Email) ||
-		!validator.ValidateStringIsPhoneNumber(c.Phone) {
-		return errorhandler.NewDomainError(
-			errorhandler.ErrUserRequestPayloadBadRequestValidationError,
-			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestValidationError),
-			nil)
-	}
-	return nil
-}
-
 type UserResponse struct {
 	Id          uint   `json:"id"`
 	Name        string `json:"name"`
+	LastName    string `json:"last_name"`
 	Username    string `json:"username"`
+	Birthday    string `json:"birthday"`
 	Email       string `json:"email"`
 	Country     string `json:"country"`
 	Phone       string `json:"phone"`
@@ -65,6 +24,8 @@ func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 	response := UserResponse{
 		Id:          user.ID,
 		Name:        user.Name,
+		LastName:    user.LastName,
+		Birthday:    user.Birthday,
 		Username:    user.Username,
 		Email:       user.Email,
 		Country:     user.Country,
@@ -76,6 +37,20 @@ func NewUserResponseFromDomainUser(user domain.User) UserResponse {
 		response.Role = NewRoleResponseFromDomainRole(user.Role)
 	}
 	return response
+}
+
+func (ur *UserResponse) ToDomainUser() domain.User {
+	return domain.User{
+		ID:          ur.Id,
+		Name:        ur.Name,
+		LastName:    ur.LastName,
+		Birthday:    ur.Birthday,
+		Username:    ur.Username,
+		Email:       ur.Email,
+		Country:     ur.Country,
+		CountryCode: ur.CountryCode,
+		Phone:       ur.Phone,
+	}
 }
 
 type RolePayload struct {

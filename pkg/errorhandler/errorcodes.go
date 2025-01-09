@@ -8,6 +8,8 @@ const (
 	ErrUserDatabaseUnableToCompleteOperation         = "USER_004"
 	ErrUserNotFound                                  = "USER_005"
 	ErrUserIncompleteParamsForCompleteUpdate         = "USER_006"
+	ErrCreatingUserInCognitoUserPool                 = "USER_007"
+	ErrSettingPermanentPassword                      = "USER_008"
 
 	// Role error handler
 	ErrRoleRequestPayloadBadRequestJsonBadlyFormated = "ROLE_001"
@@ -32,6 +34,8 @@ var errorMessages = map[string]string{
 	ErrUserNotFound:                          "There is no user with the specified param: %v",
 	ErrRoleIncompleteParamsForCompleteUpdate: "Incomplete role params for complete update",
 	ErrUserIncompleteParamsForCompleteUpdate: "Incomplete user params for complete update",
+	ErrCreatingUserInCognitoUserPool:         "unable to create user in cognito user pool: %v",
+	ErrSettingPermanentPassword:              "Error setting permanent password: %v",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.

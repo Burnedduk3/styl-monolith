@@ -8,6 +8,7 @@ import (
 	userRest "styl-monolith/internal/users/adapters/rest"
 	userService "styl-monolith/internal/users/core/services"
 	"styl-monolith/pkg/aws"
+	"styl-monolith/pkg/http"
 	postgresClient "styl-monolith/pkg/postgres"
 )
 
@@ -25,10 +26,12 @@ func BuildUserCrudDomainHandler(log *logrus.Logger) userRest.CrudRest {
 // BuildLoginUserDomainHandler constructs and returns a LoginRest handler for managing user login-related functionalities.
 func BuildLoginUserDomainHandler(log *logrus.Logger) userRest.LoginRest {
 	awsRegion := viper.GetString("AWS_REGION")
+	httpClientUserCrud := viper.GetString("API_BASE_URL")
+	GetHTTPClient, baseUrl := http.GetHTTPClient(log, httpClientUserCrud)
 	dynamoClient := aws.GetDynamoClientInstance(log, awsRegion).GetClient()
 	cognitoClient := aws.GetCognitoClientInstance(log, awsRegion).GetClient()
-	awsAuthRepository := awsAuth.NewAwsAuthRepository(log, dynamoClient, cognitoClient)
+	awsAuthRepository := awsAuth.NewAwsAuthRepository(log, dynamoClient, cognitoClient, GetHTTPClient, baseUrl)
 	loginService := userService.NewLoginService(log, awsAuthRepository)
-	handler := userRest.NewLoginRestUser(&loginService, log)
+	handler := userRest.NewLoginRestUser(loginService, log)
 	return handler
 }

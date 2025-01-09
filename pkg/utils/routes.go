@@ -14,6 +14,7 @@ func getHTTPVerbFromMethodName(methodName string) string {
 	methodToVerb := map[string]string{
 		"Get":    "GET",
 		"Create": "POST",
+		"Post":   "POST",
 		"Update": "PUT",
 		"Delete": "DELETE",
 		"Patch":  "PATCH",

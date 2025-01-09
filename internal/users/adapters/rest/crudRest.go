@@ -39,7 +39,7 @@ func NewCrudRestUser(crudService services.CrudService, logger *logrus.Logger) Cr
 
 func (c *crudRestStruct) CreateUser(ech echo.Context) error {
 	c.logger.Debug("CreateUser method called")
-	var body models.UserPayload
+	var body domain.UserPayload
 	if err := ech.Bind(&body); err != nil {
 		domErr := errorhandler.NewDomainError(
 			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
@@ -123,7 +123,7 @@ func (c *crudRestStruct) DeleteRoleById(ech echo.Context, stringId string) error
 
 func (c *crudRestStruct) UpdateUserById(ech echo.Context, stringId string) error {
 	c.logger.Debug("UpdateUser method called")
-	var body models.UserPayload
+	var body domain.UserPayload
 	if err := ech.Bind(&body); err != nil {
 		domErr := errorhandler.NewDomainError(
 			errorhandler.ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
@@ -187,7 +187,7 @@ func (c *crudRestStruct) UpdateRoleById(ech echo.Context, stringId string) error
 
 func (c *crudRestStruct) PatchUserById(ech echo.Context, stringId string) error {
 	c.logger.Debug("PatchUser method called")
-	var body models.UserPayload
+	var body domain.UserPayload
 	if err := ech.Bind(&body); err != nil {
 		domErr := errorhandler.NewDomainError(
 			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,

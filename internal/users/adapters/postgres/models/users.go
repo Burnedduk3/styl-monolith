@@ -10,8 +10,11 @@ type User struct {
 	gorm.Model
 	Username    string `gorm:"unique"`
 	Name        string
+	LastName    string
+	Birthday    string
 	Email       string `gorm:"unique"`
 	Phone       string `gorm:"unique"`
+	CognitoID   string `gorm:"unique"`
 	CountryCode string
 	Country     string
 	RoleID      uint
@@ -27,6 +30,8 @@ func NewPostgresUserFromDomainUser(user domain.User) User {
 		},
 		Username:    user.Username,
 		Name:        user.Name,
+		LastName:    user.LastName,
+		Birthday:    user.Birthday,
 		Phone:       user.Phone,
 		CountryCode: user.CountryCode,
 		Email:       user.Email,
@@ -46,6 +51,8 @@ func (u *User) ToUserDomain() domain.User {
 		ID:       u.Model.ID,
 		Username: u.Username,
 		Name:     u.Name,
+		LastName: u.LastName,
+		Birthday: u.Birthday,
 		Email:    u.Email,
 		Phone:    u.Phone,
 		Country:  u.Country,

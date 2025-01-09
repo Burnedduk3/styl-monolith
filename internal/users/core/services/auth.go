@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/sirupsen/logrus"
+	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/ports"
 )
 
@@ -12,6 +13,7 @@ type LoginServiceStruct struct {
 
 type LoginService interface {
 	Login() error
+	SignUp(domain.User) (domain.User, error)
 	Logout() error
 	Refresh() error
 	ChangePassword() error
@@ -27,6 +29,14 @@ func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService
 func (l *LoginServiceStruct) Login() error {
 	// TODO: Implement Login logic
 	return nil
+}
+
+func (l *LoginServiceStruct) SignUp(user domain.User) (domain.User, error) {
+	createdUser, err := l.awsAuth.SignUpInCognito(user)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return createdUser, nil
 }
 
 func (l *LoginServiceStruct) Logout() error {
