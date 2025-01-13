@@ -16,8 +16,8 @@ type LoginServiceStruct struct {
 type LoginService interface {
 	Login(email, password string) (domain.UserAuth, domain.User, error)
 	SignUp(domain.User) (domain.User, error)
-	Logout() error
-	Refresh() error
+	Logout(tokenId string) error
+	Refresh(tokenId string) (domain.UserAuth, error)
 	ChangePassword() error
 }
 
@@ -62,14 +62,51 @@ func (l *LoginServiceStruct) SignUp(user domain.User) (domain.User, error) {
 	return createdUser, nil
 }
 
-func (l *LoginServiceStruct) Logout() error {
-	// TODO: Implement Logout logic
+func (l *LoginServiceStruct) Logout(tokenId string) error {
+	l.logger.Debug("Starting logout method")
+	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId)
+	if err != nil {
+		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
+		return err
+	}
+	l.logger.Debug("signin out user with tokenId: ", tokenId)
+	err = l.awsAuth.SignOutCognito(userAuth)
+	if err != nil {
+		l.logger.Debug("Error signing Out from cognito database: ", tokenId)
+		return err
+	}
+	err = l.awsAuth.DeleteTokensFromDynamoById(tokenId)
+	if err != nil {
+		l.logger.Debug("Error deleting tokens from database with tokenId: ", tokenId)
+	}
 	return nil
 }
 
-func (l *LoginServiceStruct) Refresh() error {
-	// TODO: Implement Refresh logic
-	return nil
+func (l *LoginServiceStruct) Refresh(tokenId string) (domain.UserAuth, error) {
+	l.logger.Debug("Starting refresh method")
+	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId)
+	if err != nil {
+		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
+		return userAuth, err
+	}
+	l.logger.Debug("Refreshing tokens with tokenId: ", tokenId)
+	userAuth, err = l.awsAuth.RefreshTokensWithCognito(userAuth)
+	if err != nil {
+		l.logger.Debug("Error refreshing tokens with tokenId: ", tokenId)
+		return userAuth, err
+	}
+	h := sha256.New()
+	h.Write([]byte(userAuth.IdToken))
+	idTokenHash := base64.StdEncoding.EncodeToString(h.Sum(nil))
+	userAuth.IdTokenHash = idTokenHash
+	err = l.awsAuth.SaveTokensToDynamoDB(userAuth)
+	if err != nil {
+		l.logger.Debug("Error saving tokens to database with tokenId: ", tokenId)
+		return userAuth, err
+	}
+	return userAuth, nil
 }
 
 func (l *LoginServiceStruct) ChangePassword() error {

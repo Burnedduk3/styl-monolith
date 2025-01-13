@@ -9,3 +9,8 @@ type LoginRestResponse struct {
 	TokenHash string
 	User      UserResponse
 }
+
+type RefreshTokenRequest struct {
+	Email   string `json:"email"`
+	TokenId string `json:"token_id"`
+}

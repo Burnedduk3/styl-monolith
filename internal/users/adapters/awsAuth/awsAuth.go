@@ -351,15 +351,15 @@ func (a *AwsAuth) RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.Use
 	return newAuth, nil
 }
 
-func (a *AwsAuth) SignOutCognito(accessToken string) error {
+func (a *AwsAuth) SignOutCognito(userAuth domain.UserAuth) error {
 	// Check if accessToken is empty
-	if accessToken == "" {
+	if userAuth.AccessToken == "" {
 		return fmt.Errorf("access token cannot be empty")
 	}
 
 	// Create the input for the GlobalSignOut API call
 	input := &cognitoidentityprovider.GlobalSignOutInput{
-		AccessToken: aws.String(accessToken),
+		AccessToken: aws.String(userAuth.AccessToken),
 	}
 
 	// Call the GlobalSignOut API

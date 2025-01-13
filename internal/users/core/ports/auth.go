@@ -10,6 +10,6 @@ type LoginPort interface {
 	GetTokensFromDynamoById(tokenId string) (domain.UserAuth, error)
 	GetTokensFromDynamoByEmail(email string) (domain.UserAuth, error)
 	RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.UserAuth, error)
-	SignOutCognito(accessToken string) error
+	SignOutCognito(userAuth domain.UserAuth) error
 	DeleteTokensFromDynamoById(tokenId string) error
 }
