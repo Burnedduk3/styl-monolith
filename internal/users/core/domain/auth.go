@@ -8,3 +8,8 @@ type UserAuth struct {
 	UserId       uint
 	Email        string
 }
+
+type JwtClaims struct {
+	Username string `json:"cognito:username"`
+	Email    string `json:"email"`
+}

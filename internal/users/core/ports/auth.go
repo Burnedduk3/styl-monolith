@@ -7,9 +7,9 @@ type LoginPort interface {
 	SignInCognito(email, password string) (domain.UserAuth, error)
 	SaveTokensToDynamoDB(userAuth domain.UserAuth) error
 	FetchUserFromDatabase(email string) (domain.User, error)
-	GetTokensFromDynamoById(tokenId string) (domain.UserAuth, error)
+	GetTokensFromDynamoById(tokenId, email string) (domain.UserAuth, error)
 	GetTokensFromDynamoByEmail(email string) (domain.UserAuth, error)
-	RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.UserAuth, error)
+	RefreshTokensWithCognito(userAuth domain.UserAuth, username string) (domain.UserAuth, error)
 	SignOutCognito(userAuth domain.UserAuth) error
-	DeleteTokensFromDynamoById(tokenId string) error
+	DeleteTokensFromDynamoById(userAuth domain.UserAuth) error
 }

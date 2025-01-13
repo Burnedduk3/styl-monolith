@@ -74,14 +74,42 @@ func (l *LoginRestStruct) PostSignUp(ech echo.Context) error {
 	return ech.JSON(http.StatusOK, dUser)
 }
 
-func (l *LoginRestStruct) PostLogout(c echo.Context) error {
-	// TODO: Implement PostLogout
-	return nil
+func (l *LoginRestStruct) PostLogout(ech echo.Context) error {
+	l.logger.Debug("Post refresh token method called")
+	var body models.TokenRequest
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		l.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, l.logger)
+	}
+	err := l.loginService.Logout(body.TokenId, body.Email)
+	if err != nil {
+		l.logger.Error(err)
+		return errorhandler.HandleError(ech, err, l.logger)
+	}
+	return ech.JSON(http.StatusOK, nil)
 }
 
-func (l *LoginRestStruct) PostRefreshToken(c echo.Context) error {
-	// TODO: Implement PostRefresh
-	return nil
+func (l *LoginRestStruct) PostRefreshToken(ech echo.Context) error {
+	l.logger.Debug("Post refresh token method called")
+	var body models.TokenRequest
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		l.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, l.logger)
+	}
+	dUser, err := l.loginService.Refresh(body.TokenId, body.Email)
+	if err != nil {
+		l.logger.Error(err)
+		return errorhandler.HandleError(ech, err, l.logger)
+	}
+	return ech.JSON(http.StatusOK, dUser)
 }
 
 func (l *LoginRestStruct) PatchChangePassword(c echo.Context) error {

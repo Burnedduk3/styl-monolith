@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/ports"
+	"styl-monolith/pkg/utils"
 )
 
 type LoginServiceStruct struct {
@@ -16,8 +17,8 @@ type LoginServiceStruct struct {
 type LoginService interface {
 	Login(email, password string) (domain.UserAuth, domain.User, error)
 	SignUp(domain.User) (domain.User, error)
-	Logout(tokenId string) error
-	Refresh(tokenId string) (domain.UserAuth, error)
+	Logout(tokenId, email string) error
+	Refresh(tokenId, email string) (domain.UserAuth, error)
 	ChangePassword() error
 }
 
@@ -62,10 +63,10 @@ func (l *LoginServiceStruct) SignUp(user domain.User) (domain.User, error) {
 	return createdUser, nil
 }
 
-func (l *LoginServiceStruct) Logout(tokenId string) error {
+func (l *LoginServiceStruct) Logout(tokenId, email string) error {
 	l.logger.Debug("Starting logout method")
 	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
-	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId, email)
 	if err != nil {
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return err
@@ -76,37 +77,49 @@ func (l *LoginServiceStruct) Logout(tokenId string) error {
 		l.logger.Debug("Error signing Out from cognito database: ", tokenId)
 		return err
 	}
-	err = l.awsAuth.DeleteTokensFromDynamoById(tokenId)
+	err = l.awsAuth.DeleteTokensFromDynamoById(userAuth)
 	if err != nil {
 		l.logger.Debug("Error deleting tokens from database with tokenId: ", tokenId)
 	}
 	return nil
 }
 
-func (l *LoginServiceStruct) Refresh(tokenId string) (domain.UserAuth, error) {
+func (l *LoginServiceStruct) Refresh(tokenId, email string) (domain.UserAuth, error) {
 	l.logger.Debug("Starting refresh method")
 	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
-	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId, email)
 	if err != nil {
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return userAuth, err
 	}
+	jwtClaims := utils.DecodeJWT(userAuth.IdToken)
+	if jwtClaims.Email != email {
+		l.logger.Error("Emails do not match, request email: ", email, " Token Email ", userAuth.Email)
+		return userAuth, err
+	}
 	l.logger.Debug("Refreshing tokens with tokenId: ", tokenId)
-	userAuth, err = l.awsAuth.RefreshTokensWithCognito(userAuth)
+	NewUserAuth, err := l.awsAuth.RefreshTokensWithCognito(userAuth, jwtClaims.Username)
+	NewUserAuth.RefreshToken = userAuth.RefreshToken
 	if err != nil {
 		l.logger.Debug("Error refreshing tokens with tokenId: ", tokenId)
 		return userAuth, err
 	}
+	l.logger.Debug("Updating tokens in database with tokenId: ", tokenId)
+	err = l.awsAuth.DeleteTokensFromDynamoById(userAuth)
+	if err != nil {
+		l.logger.Debug("Error deleting tokens from database with tokenId: ", tokenId)
+		return userAuth, err
+	}
 	h := sha256.New()
-	h.Write([]byte(userAuth.IdToken))
+	h.Write([]byte(NewUserAuth.IdToken))
 	idTokenHash := base64.StdEncoding.EncodeToString(h.Sum(nil))
-	userAuth.IdTokenHash = idTokenHash
-	err = l.awsAuth.SaveTokensToDynamoDB(userAuth)
+	NewUserAuth.IdTokenHash = idTokenHash
+	err = l.awsAuth.SaveTokensToDynamoDB(NewUserAuth)
 	if err != nil {
 		l.logger.Debug("Error saving tokens to database with tokenId: ", tokenId)
 		return userAuth, err
 	}
-	return userAuth, nil
+	return NewUserAuth, nil
 }
 
 func (l *LoginServiceStruct) ChangePassword() error {

@@ -18,6 +18,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"styl-monolith/internal/users/adapters/rest/models"
 	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/pkg/errorhandler"
@@ -39,8 +40,9 @@ func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cog
 
 // calculateSecretHash calculates Cognito's required SECRET_HASH
 func (a *AwsAuth) calculateSecretHash(clientSecret, clientId, username string) string {
+	message := username + clientId
 	h := hmac.New(sha256.New, []byte(clientSecret))
-	h.Write([]byte(username + clientId))
+	h.Write([]byte(message))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
@@ -161,6 +163,7 @@ func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error)
 	// Initiate the authentication request
 	clientId := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_ID")
 	clientSecret := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_SECRET")
+	email = strings.ToLower(email)
 	secretHash := a.calculateSecretHash(clientSecret, clientId, email)
 	authInput := &cognitoidentityprovider.InitiateAuthInput{
 		AuthFlow: types.AuthFlowTypeUserPasswordAuth,
@@ -241,11 +244,12 @@ func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
 	return nil
 }
 
-func (a *AwsAuth) GetTokensFromDynamoById(tokenId string) (domain.UserAuth, error) {
+func (a *AwsAuth) GetTokensFromDynamoById(tokenId, email string) (domain.UserAuth, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
 		Key: map[string]dynamodbTypes.AttributeValue{
-			"token_id": &dynamodbTypes.AttributeValueMemberS{Value: tokenId},
+			"token_id":   &dynamodbTypes.AttributeValueMemberS{Value: tokenId},
+			"user_email": &dynamodbTypes.AttributeValueMemberS{Value: email},
 		},
 	}
 
@@ -308,20 +312,20 @@ func (a *AwsAuth) GetTokensFromDynamoByEmail(email string) (domain.UserAuth, err
 	return userAuth, nil
 }
 
-func (a *AwsAuth) RefreshTokensWithCognito(userAuth domain.UserAuth) (domain.UserAuth, error) {
-	authParams := map[string]string{
-		"REFRESH_TOKEN": userAuth.RefreshToken,
-	}
+func (a *AwsAuth) RefreshTokensWithCognito(userAuth domain.UserAuth, username string) (domain.UserAuth, error) {
 	clientId := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_ID")
 	clientSecret := viper.GetString("AWS_COGNITO_USER_POOL_CLIENT_SECRET")
-	secretHash := a.calculateSecretHash(clientSecret, clientId, userAuth.Email)
-	authParams["SECRET_HASH"] = secretHash
 
 	// Create the input for the Cognito InitiateAuth API
 	input := &cognitoidentityprovider.InitiateAuthInput{
-		AuthFlow:       types.AuthFlowTypeRefreshTokenAuth, // Use the REFRESH_TOKEN_AUTH flow
-		ClientId:       aws.String(clientId),
-		AuthParameters: authParams,
+		AuthFlow: types.AuthFlowTypeRefreshTokenAuth,
+		ClientId: aws.String(clientId),
+		AuthParameters: map[string]string{
+			"REFRESH_TOKEN": userAuth.RefreshToken,
+			"USERNAME":      username,
+			"CLIENT_ID":     clientId,
+			"SECRET_HASH":   a.calculateSecretHash(clientSecret, clientId, username),
+		},
 	}
 
 	// Call AWS Cognito's InitiateAuth API
@@ -372,17 +376,18 @@ func (a *AwsAuth) SignOutCognito(userAuth domain.UserAuth) error {
 	return nil
 }
 
-func (a *AwsAuth) DeleteTokensFromDynamoById(tokenId string) error {
+func (a *AwsAuth) DeleteTokensFromDynamoById(userAuth domain.UserAuth) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
 		Key: map[string]dynamodbTypes.AttributeValue{
-			"token_id": &dynamodbTypes.AttributeValueMemberS{Value: tokenId},
+			"token_id":   &dynamodbTypes.AttributeValueMemberS{Value: userAuth.IdTokenHash},
+			"user_email": &dynamodbTypes.AttributeValueMemberS{Value: userAuth.Email},
 		},
 	}
 
 	_, err := a.dynamoClient.DeleteItem(context.TODO(), input)
 	if err != nil {
-		return fmt.Errorf("failed to delete token with id %s from DynamoDB: %v", tokenId, err)
+		return fmt.Errorf("failed to delete token with id %s from DynamoDB: %v", userAuth.IdToken, err)
 	}
 	return nil
 }

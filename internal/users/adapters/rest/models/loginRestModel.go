@@ -10,7 +10,7 @@ type LoginRestResponse struct {
 	User      UserResponse
 }
 
-type RefreshTokenRequest struct {
+type TokenRequest struct {
 	Email   string `json:"email"`
 	TokenId string `json:"token_id"`
 }
