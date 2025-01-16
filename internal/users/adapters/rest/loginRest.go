@@ -16,6 +16,7 @@ type LoginRest interface {
 	PostLogout(ech echo.Context) error
 	PostRefreshToken(ech echo.Context) error
 	PatchChangePassword(ech echo.Context) error
+	DeleteUserAccount(ech echo.Context) error
 }
 
 type LoginRestStruct struct {
@@ -112,7 +113,26 @@ func (l *LoginRestStruct) PostRefreshToken(ech echo.Context) error {
 	return ech.JSON(http.StatusOK, dUser)
 }
 
-func (l *LoginRestStruct) PatchChangePassword(c echo.Context) error {
+func (l *LoginRestStruct) PatchChangePassword(ech echo.Context) error {
 	// TODO: Implement UpdatePassword
 	return nil
+}
+
+func (l *LoginRestStruct) DeleteUserAccount(ech echo.Context) error {
+	l.logger.Debug("Delete User account method called")
+	var body models.TokenRequest
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated),
+			err)
+		l.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, l.logger)
+	}
+	err := l.loginService.DeleteUser(body.Email)
+	if err != nil {
+		l.logger.Error(err)
+		return errorhandler.HandleError(ech, err, l.logger)
+	}
+	return ech.JSON(http.StatusOK, nil)
 }

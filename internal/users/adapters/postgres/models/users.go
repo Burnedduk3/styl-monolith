@@ -14,7 +14,6 @@ type User struct {
 	Birthday    string
 	Email       string `gorm:"unique"`
 	Phone       string `gorm:"unique"`
-	CognitoID   string `gorm:"unique"`
 	CountryCode string
 	Country     string
 	RoleID      uint

@@ -20,6 +20,7 @@ type LoginService interface {
 	Logout(tokenId, email string) error
 	Refresh(tokenId, email string) (domain.UserAuth, error)
 	ChangePassword() error
+	DeleteUser(email string) error
 }
 
 func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService {
@@ -124,5 +125,27 @@ func (l *LoginServiceStruct) Refresh(tokenId, email string) (domain.UserAuth, er
 
 func (l *LoginServiceStruct) ChangePassword() error {
 	// TODO: Implement ChangePassword logic
+	return nil
+}
+
+func (l *LoginServiceStruct) DeleteUser(email string) error {
+	l.logger.Debug("Starting delete method")
+	l.logger.Debug("Fetching User from database with email: ", email)
+	user, err := l.awsAuth.FetchUserFromDatabase(email)
+	if err != nil {
+		l.logger.Debug("Error fetching User from database with email: ", email)
+		return err
+	}
+	l.logger.Debug("Deleting User from database with id: ", user.ID)
+	err = l.awsAuth.DeleteUserFromDatabase(user.ID)
+	if err != nil {
+		l.logger.Debug("Error fetching User from database with email: ", email)
+		return err
+	}
+	err = l.awsAuth.DeleteUserInCognito(user.Email)
+	if err != nil {
+		l.logger.Debug("Error fetching User from database with email: ", email)
+		return err
+	}
 	return nil
 }

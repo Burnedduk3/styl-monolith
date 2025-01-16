@@ -176,6 +176,7 @@ func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error)
 	}
 	authResponse, err := a.cognitoClient.InitiateAuth(context.TODO(), authInput)
 	if err != nil {
+
 		return domain.UserAuth{}, fmt.Errorf("authentication failed: %v", err)
 	}
 	userAuth := domain.UserAuth{
@@ -224,6 +225,23 @@ func (a *AwsAuth) FetchUserFromDatabase(email string) (domain.User, error) {
 	return umarshaledUser.ToDomainUser(), nil
 }
 
+func (a *AwsAuth) DeleteUserFromDatabase(id uint) error {
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("api/v1/user/%d", id)), nil)
+	if err != nil {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrUserNotFound,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserNotFound),
+			err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = a.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
@@ -239,7 +257,12 @@ func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
 
 	_, err := a.dynamoClient.PutItem(context.TODO(), input)
 	if err != nil {
-		return fmt.Errorf("failed to save tokens to DynamoDB: %v", err)
+		a.log.Error(err)
+		return errorhandler.NewDomainError(
+			errorhandler.ErrSaveTokenToDynamo,
+			errorhandler.GetErrorMessage(errorhandler.ErrSaveTokenToDynamo),
+			err,
+		)
 	}
 	return nil
 }
@@ -389,5 +412,32 @@ func (a *AwsAuth) DeleteTokensFromDynamoById(userAuth domain.UserAuth) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete token with id %s from DynamoDB: %v", userAuth.IdToken, err)
 	}
+	return nil
+}
+
+func (a *AwsAuth) DeleteUserInCognito(email string) error {
+	userPoolID := viper.GetString("AWS_COGNITO_USER_POOL_ID")
+
+	input := &cognitoidentityprovider.AdminDeleteUserInput{
+		UserPoolId: aws.String(userPoolID), // Specify the Cognito User Pool ID
+		Username:   aws.String(email),      // Set the username or email of the user to delete
+	}
+
+	a.log.Info(fmt.Sprintf(logger.DeletingUserWithEmail, email))
+
+	// Call the AWS Cognito AdminDeleteUser API
+	_, err := a.cognitoClient.AdminDeleteUser(context.TODO(), input)
+	if err != nil {
+		// Log the error and return a domain-specific error
+		a.log.Error(fmt.Sprintf(logger.FailedToDeleteCognitoUser, email), err)
+		return errorhandler.NewDomainError(
+			errorhandler.ErrDeletingUserFromCognitoUserPool,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrDeletingUserFromCognitoUserPool), email),
+			err,
+		)
+	}
+
+	// Log successful deletion
+	a.log.Info(fmt.Sprintf(logger.SuccessfullyDeletedCognitoUser, email))
 	return nil
 }

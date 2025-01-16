@@ -10,6 +10,7 @@ const (
 	ErrUserIncompleteParamsForCompleteUpdate         = "USER_006"
 	ErrCreatingUserInCognitoUserPool                 = "USER_007"
 	ErrSettingPermanentPassword                      = "USER_008"
+	ErrDeletingUserFromCognitoUserPool               = "USER_009"
 
 	// Role error handler
 	ErrRoleRequestPayloadBadRequestJsonBadlyFormated = "ROLE_001"
@@ -18,6 +19,9 @@ const (
 	ErrRoleNotFound                                  = "ROLE_004"
 	ErrRoleIncompleteParamsForCompleteUpdate         = "ROLE_005"
 	ErrRoleRequestPayloadBadRequestValidationError   = "ROLE_006"
+
+	// Infra error handler
+	ErrSaveTokenToDynamo = "DYNAMO_01"
 )
 
 // errorMessages defines a mapping of error codes to their corresponding descriptive error messages.
@@ -36,6 +40,8 @@ var errorMessages = map[string]string{
 	ErrUserIncompleteParamsForCompleteUpdate: "Incomplete user params for complete update",
 	ErrCreatingUserInCognitoUserPool:         "unable to create user in cognito user pool: %v",
 	ErrSettingPermanentPassword:              "Error setting permanent password: %v",
+	ErrDeletingUserFromCognitoUserPool:       "Error deleting cognito user: %v",
+	ErrSaveTokenToDynamo:                     "Error saving token to dynamo: %v",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.
