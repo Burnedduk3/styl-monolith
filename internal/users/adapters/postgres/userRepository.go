@@ -90,13 +90,22 @@ func (r *UserRepository) UpdateUser(user domain.User) (domain.User, error) {
 // DeleteUser removes a user record from the database using the provided user ID.
 // Returns an error if the operation fails or if the user is not found.
 func (r *UserRepository) DeleteUser(id uint) error {
-	result := r.conn.Delete(&models.User{}, id)
+	result := r.conn.Unscoped().Delete(&models.User{}, id)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrUserDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrUserDatabaseUnableToCompleteOperation),
 			result.Error)
 	}
+	if result.RowsAffected == 0 {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrUserNotFound,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrUserNotFound), id),
+			nil,
+		)
+	}
+
+	// Handle case where no rows were affected (user not found)
 	if result.RowsAffected == 0 {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrUserNotFound,
