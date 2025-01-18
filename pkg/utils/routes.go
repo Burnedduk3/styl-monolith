@@ -73,42 +73,60 @@ func buildRoutePath(pathPrefix, methodName, httpVerb string) (string, string) {
 	return routePath, routeParam
 }
 
+func callHandlerMethod(v reflect.Value, c echo.Context, method reflect.Method, routeParam string) error {
+	// Check if the route includes a parameter
+	paramValue := c.Param(routeParam)
+
+	var args []reflect.Value
+	args = append(args, v)                  // Add the handler instance as the first argument
+	args = append(args, reflect.ValueOf(c)) // Add the Echo context (`c`) as the second argument
+
+	// If a parameter is present in the route, pass it as an argument to the method
+	if paramValue != "" {
+		args = append(args, reflect.ValueOf(paramValue))
+	}
+
+	// Call the handler method with the appropriate arguments
+	results := method.Func.Call(args)
+
+	// Handle any returned results
+	if len(results) > 0 && results[0].CanInterface() {
+		if results[0].Interface() != nil {
+			return results[0].Interface().(error)
+		}
+		return nil
+	}
+	return nil
+}
+
 // RegisterRoutesAutomatically registers routes dynamically based on the methods in the handler.
-func RegisterRoutesAutomatically(e *echo.Echo, handler interface{}, methodPrefix string, log *logrus.Logger) {
+func RegisterRoutesAutomatically(e *echo.Echo, handler interface{}, methodPrefix string, log *logrus.Logger, isPrivate bool, authFunc echo.MiddlewareFunc) {
 	t := reflect.TypeOf(handler)
 	v := reflect.ValueOf(handler)
+
+	// Set up group and ensure proper auth setup for private routes
+	var echoGroup *echo.Group
+	if isPrivate && authFunc != nil {
+		echoGroup = e.Group("/private", authFunc)
+	} else {
+		echoGroup = e.Group("") // No additional prefix for public routes
+	}
 
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)
 		httpVerb := getHTTPVerbFromMethodName(method.Name)
 		routePath, routeParam := buildRoutePath(methodPrefix, method.Name, httpVerb)
-		log.Debug(fmt.Sprintf("http_verb: %s route_path: %s", httpVerb, routePath))
 
-		// Dynamic route registration
-		e.Add(httpVerb, routePath, func(c echo.Context) error {
-			// Check if the route includes a parameter
-			paramValue := c.Param(routeParam)
+		log.Debug(fmt.Sprintf("Registering route: %s %s (private: %t)", httpVerb, routePath, isPrivate))
 
-			var args []reflect.Value
-			args = append(args, v)                  // Add the handler instance as the first argument
-			args = append(args, reflect.ValueOf(c)) // Add the Echo context (`c`) as the second argument
-
-			// If a parameter is present in the route, pass it as an argument to the method
-			if paramValue != "" {
-				args = append(args, reflect.ValueOf(paramValue))
-			}
-
-			// Call the handler method with the appropriate arguments
-			results := method.Func.Call(args)
-
-			// Handle any returned results
-			if len(results) > 0 && results[0].CanInterface() {
-				if results[0].Interface() != nil {
-					return results[0].Interface().(error)
-				}
-				return nil
-			}
-			return nil
-		})
+		if isPrivate {
+			echoGroup.Add(httpVerb, routePath, func(c echo.Context) error {
+				return callHandlerMethod(v, c, method, routeParam)
+			})
+		} else {
+			e.Add(httpVerb, routePath, func(c echo.Context) error {
+				return callHandlerMethod(v, c, method, routeParam)
+			})
+		}
 	}
 }

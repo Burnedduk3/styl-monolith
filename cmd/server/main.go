@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"styl-monolith/pkg/config"
 	log "styl-monolith/pkg/logger"
+	"styl-monolith/pkg/middleware"
 	"styl-monolith/pkg/utils"
 
 	pb "styl-monolith/generated/proto/media"
@@ -50,13 +51,15 @@ func init() {
 func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudUserDomainHandler := config.BuildUserCrudDomainHandler(logger)
 	loginUserDomainHandler := config.BuildLoginUserDomainHandler(logger)
-	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger)
-	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger)
+	dynamodbRepo := config.CreateAwsAuthClient(logger)
+	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger, false, middleware.ValidateTokenWithRepository(dynamodbRepo))
+	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, false, nil)
 }
 
 func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudMediaDomainHandler := config.BuildMediaCrudDomainHandler(logger)
-	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger)
+	dynamodbRepo := config.CreateAwsAuthClient(logger)
+	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateTokenWithRepository(dynamodbRepo))
 }
 
 // main initializes and starts both an HTTP server using Echo and a gRPC server on their respective ports.

@@ -22,6 +22,12 @@ const (
 
 	// Infra error handler
 	ErrSaveTokenToDynamo = "DYNAMO_01"
+
+	// Auth errors
+	ErrAuthInvalidToken            = "AUTH_001"
+	ErrAuthErrorDecodingHeader     = "AUTH_002"
+	ErrAuthErrorDecodingPayload    = "AUTH_003"
+	ErrAuthErrorUnmarshalingClaims = "AUTH_004"
 )
 
 // errorMessages defines a mapping of error codes to their corresponding descriptive error messages.
@@ -42,6 +48,10 @@ var errorMessages = map[string]string{
 	ErrSettingPermanentPassword:              "Error setting permanent password: %v",
 	ErrDeletingUserFromCognitoUserPool:       "Error deleting cognito user: %v",
 	ErrSaveTokenToDynamo:                     "Error saving token to dynamo: %v",
+	ErrAuthInvalidToken:                      "Invalid JWT token",
+	ErrAuthErrorDecodingHeader:               "Error decoding header: %v",
+	ErrAuthErrorDecodingPayload:              "Error decoding payload: %v",
+	ErrAuthErrorUnmarshalingClaims:           "Error unmarshaling claims: %v",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.

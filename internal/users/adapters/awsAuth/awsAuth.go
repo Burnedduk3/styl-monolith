@@ -21,6 +21,7 @@ import (
 	"strings"
 	"styl-monolith/internal/users/adapters/rest/models"
 	"styl-monolith/internal/users/core/domain"
+	"styl-monolith/internal/users/core/ports"
 	"styl-monolith/pkg/errorhandler"
 	"styl-monolith/pkg/logger"
 	"styl-monolith/pkg/utils"
@@ -34,7 +35,7 @@ type AwsAuth struct {
 	baseUrl       string
 }
 
-func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client, client *http.Client, baseUrl string) *AwsAuth {
+func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client, client *http.Client, baseUrl string) ports.LoginPort {
 	return &AwsAuth{log: log, dynamoClient: dynamoClient, cognitoClient: cognitoClient, httpClient: client, baseUrl: baseUrl}
 }
 

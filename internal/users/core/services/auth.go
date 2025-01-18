@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/ports"
-	"styl-monolith/pkg/utils"
+	"styl-monolith/pkg/utils/jwt"
 )
 
 type LoginServiceStruct struct {
@@ -93,7 +93,11 @@ func (l *LoginServiceStruct) Refresh(tokenId, email string) (domain.UserAuth, er
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return userAuth, err
 	}
-	jwtClaims := utils.DecodeJWT(userAuth.IdToken)
+	jwtClaims, err := jwt.DecodeIdJWT(userAuth.IdToken)
+	if err != nil {
+		l.logger.Error("Unable to decode JWT")
+		return userAuth, err
+	}
 	if jwtClaims.Email != email {
 		l.logger.Error("Emails do not match, request email: ", email, " Token Email ", userAuth.Email)
 		return userAuth, err

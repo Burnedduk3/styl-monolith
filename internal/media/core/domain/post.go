@@ -20,8 +20,8 @@ type Post struct {
 	IsSpam          bool
 	IsReported      bool
 	IsBlocked       bool
-	PostImages      []PostImage
 	TagIds          []uint // from tag domain
+	PostImages      []PostImage
 	PostComments    []PostComment
 	PostLikes       []PostLike
 	PostReports     []PostReport
