@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package handler;
+
+option go_package = "./generated/proto/media";
+
+message CreateLikeRequest {
+  string content = 1;
+}
+
+message CreateLikeResponse {
+  string id = 1;
+}
+
+message GetPostByIdRequest {
+  string id = 1;
+}
+
+message GetPostByIdResponse {
+  string content = 1;
+}
+
+
+service CrudPostService {
+  rpc CreatePostLike(CreateLikeRequest) returns (CreateLikeResponse);
+}

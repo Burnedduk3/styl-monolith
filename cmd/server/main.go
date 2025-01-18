@@ -12,7 +12,13 @@ import (
 	"styl-monolith/pkg/config"
 	log "styl-monolith/pkg/logger"
 	"styl-monolith/pkg/utils"
+
+	pb "styl-monolith/generated/proto/media"
+	stylGrpc "styl-monolith/internal/media/adapters/grcp"
 )
+
+var apiVersion = "v1"
+var initialPath = "/api/" + apiVersion
 
 // init configures the application by loading environment variables and setting up the logger.
 func init() {
@@ -41,11 +47,16 @@ func init() {
 	}
 }
 
-func RegisterUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
+func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudUserDomainHandler := config.BuildUserCrudDomainHandler(logger)
 	loginUserDomainHandler := config.BuildLoginUserDomainHandler(logger)
-	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, "api/v1", logger)
-	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, "api/v1", logger)
+	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger)
+	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger)
+}
+
+func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
+	crudMediaDomainHandler := config.BuildMediaCrudDomainHandler(logger)
+	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger)
 }
 
 // main initializes and starts both an HTTP server using Echo and a gRPC server on their respective ports.
@@ -61,7 +72,8 @@ func main() {
 	// Spin up Echo HTTP server on port 1323
 	e := echo.New()
 	go func() {
-		RegisterUsersDomainRoutes(e, logger)
+		registerUsersDomainRoutes(e, logger)
+		registerMediaDomainRoutes(e, logger)
 		logger.Info("Starting Echo server on port 1323")
 		if err := e.Start(":1323"); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("Failed to start Echo server: %v", err)
@@ -73,8 +85,8 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to listen on port 50051: %v", err)
 	}
-
 	grpcServer := grpc.NewServer()
+	pb.RegisterCrudPostServiceServer(grpcServer, &stylGrpc.CrudPostService{})
 	logger.Info("Starting gRPC server on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
 		logger.Fatal("Failed to serve gRPC server: %v", err)
