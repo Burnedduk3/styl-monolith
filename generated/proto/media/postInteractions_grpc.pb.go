@@ -19,14 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CrudPostService_CreatePostLike_FullMethodName = "/handler.CrudPostService/CreatePostLike"
+	CrudPostService_ListPosts_FullMethodName        = "/handler.CrudPostService/ListPosts"
+	CrudPostService_ListComments_FullMethodName     = "/handler.CrudPostService/ListComments"
+	CrudPostService_PostCommentsById_FullMethodName = "/handler.CrudPostService/PostCommentsById"
 )
 
 // CrudPostServiceClient is the client API for CrudPostService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CrudPostServiceClient interface {
-	CreatePostLike(ctx context.Context, in *CreateLikeRequest, opts ...grpc.CallOption) (*CreateLikeResponse, error)
+	ListPosts(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponsePost, error)
+	ListComments(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponseComments, error)
+	PostCommentsById(ctx context.Context, in *PostCommentsByIdRequest, opts ...grpc.CallOption) (*PostCommentsByIdResponse, error)
 }
 
 type crudPostServiceClient struct {
@@ -37,10 +41,30 @@ func NewCrudPostServiceClient(cc grpc.ClientConnInterface) CrudPostServiceClient
 	return &crudPostServiceClient{cc}
 }
 
-func (c *crudPostServiceClient) CreatePostLike(ctx context.Context, in *CreateLikeRequest, opts ...grpc.CallOption) (*CreateLikeResponse, error) {
+func (c *crudPostServiceClient) ListPosts(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponsePost, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateLikeResponse)
-	err := c.cc.Invoke(ctx, CrudPostService_CreatePostLike_FullMethodName, in, out, cOpts...)
+	out := new(PaginationResponsePost)
+	err := c.cc.Invoke(ctx, CrudPostService_ListPosts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *crudPostServiceClient) ListComments(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponseComments, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PaginationResponseComments)
+	err := c.cc.Invoke(ctx, CrudPostService_ListComments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *crudPostServiceClient) PostCommentsById(ctx context.Context, in *PostCommentsByIdRequest, opts ...grpc.CallOption) (*PostCommentsByIdResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PostCommentsByIdResponse)
+	err := c.cc.Invoke(ctx, CrudPostService_PostCommentsById_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +75,9 @@ func (c *crudPostServiceClient) CreatePostLike(ctx context.Context, in *CreateLi
 // All implementations must embed UnimplementedCrudPostServiceServer
 // for forward compatibility.
 type CrudPostServiceServer interface {
-	CreatePostLike(context.Context, *CreateLikeRequest) (*CreateLikeResponse, error)
+	ListPosts(context.Context, *PaginationRequest) (*PaginationResponsePost, error)
+	ListComments(context.Context, *PaginationRequest) (*PaginationResponseComments, error)
+	PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error)
 	mustEmbedUnimplementedCrudPostServiceServer()
 }
 
@@ -62,8 +88,14 @@ type CrudPostServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCrudPostServiceServer struct{}
 
-func (UnimplementedCrudPostServiceServer) CreatePostLike(context.Context, *CreateLikeRequest) (*CreateLikeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreatePostLike not implemented")
+func (UnimplementedCrudPostServiceServer) ListPosts(context.Context, *PaginationRequest) (*PaginationResponsePost, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPosts not implemented")
+}
+func (UnimplementedCrudPostServiceServer) ListComments(context.Context, *PaginationRequest) (*PaginationResponseComments, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListComments not implemented")
+}
+func (UnimplementedCrudPostServiceServer) PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PostCommentsById not implemented")
 }
 func (UnimplementedCrudPostServiceServer) mustEmbedUnimplementedCrudPostServiceServer() {}
 func (UnimplementedCrudPostServiceServer) testEmbeddedByValue()                         {}
@@ -86,20 +118,56 @@ func RegisterCrudPostServiceServer(s grpc.ServiceRegistrar, srv CrudPostServiceS
 	s.RegisterService(&CrudPostService_ServiceDesc, srv)
 }
 
-func _CrudPostService_CreatePostLike_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateLikeRequest)
+func _CrudPostService_ListPosts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaginationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CrudPostServiceServer).CreatePostLike(ctx, in)
+		return srv.(CrudPostServiceServer).ListPosts(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CrudPostService_CreatePostLike_FullMethodName,
+		FullMethod: CrudPostService_ListPosts_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CrudPostServiceServer).CreatePostLike(ctx, req.(*CreateLikeRequest))
+		return srv.(CrudPostServiceServer).ListPosts(ctx, req.(*PaginationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CrudPostService_ListComments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaginationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CrudPostServiceServer).ListComments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CrudPostService_ListComments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CrudPostServiceServer).ListComments(ctx, req.(*PaginationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CrudPostService_PostCommentsById_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PostCommentsByIdRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CrudPostServiceServer).PostCommentsById(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CrudPostService_PostCommentsById_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CrudPostServiceServer).PostCommentsById(ctx, req.(*PostCommentsByIdRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -112,8 +180,16 @@ var CrudPostService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CrudPostServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreatePostLike",
-			Handler:    _CrudPostService_CreatePostLike_Handler,
+			MethodName: "ListPosts",
+			Handler:    _CrudPostService_ListPosts_Handler,
+		},
+		{
+			MethodName: "ListComments",
+			Handler:    _CrudPostService_ListComments_Handler,
+		},
+		{
+			MethodName: "PostCommentsById",
+			Handler:    _CrudPostService_PostCommentsById_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

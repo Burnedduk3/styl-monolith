@@ -4,23 +4,115 @@ package handler;
 
 option go_package = "./generated/proto/media";
 
-message CreateLikeRequest {
-  string content = 1;
+import "google/protobuf/timestamp.proto";
+
+// Represents a Post object
+message Post {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint32 view_count = 3;
+  uint32 comment_count = 4;
+  uint32 like_count = 5;
+  uint32 number_of_reports = 6;
+  uint32 saved_count = 7;
+  string caption = 8;
+  google.protobuf.Timestamp created = 9;
+  google.protobuf.Timestamp updated = 10;
+  google.protobuf.Timestamp deleted = 11;
+  bool is_deleted = 12;
+  bool is_public = 13;
+  bool is_approved = 14;
+  bool is_spam = 15;
+  bool is_reported = 16;
+  bool is_blocked = 17;
+
+  repeated PostImage post_images = 18; // Nested type
+  repeated uint64 tag_ids = 19; // Related to tags
+  repeated PostComment post_comments = 20;
+  repeated PostLike post_likes = 21;
+  repeated PostReport post_reports = 22;
 }
 
-message CreateLikeResponse {
-  string id = 1;
+// Represents a PostLike object
+message PostLike {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint64 post_id = 3;
+  google.protobuf.Timestamp created = 4;
 }
 
-message GetPostByIdRequest {
-  string id = 1;
+// Represents a PostComment object
+message PostComment {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint64 post_id = 3;
+  string comment = 4;
+  google.protobuf.Timestamp created = 5;
+  bool is_deleted = 6;
+  bool is_reported = 7;
 }
 
-message GetPostByIdResponse {
-  string content = 1;
+// Represents a PostReport object
+message PostReport {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint64 post_id = 3;
+  string reason = 4;
+  bool confirmed = 5;
 }
 
+// Represents a PostImage object
+message PostImage {
+  uint64 id = 1;
+  uint64 post_id = 2;
+  uint64 image_id = 3;
+  string s3_url = 4;
+  google.protobuf.Timestamp created = 5;
+  google.protobuf.Timestamp deleted = 6;
+  bool is_deleted = 7;
+  bool is_main = 8;
+  int32 order = 9; // Image order
+  int32 width = 10;
+  int32 height = 11;
+  int32 size = 12; // Size in bytes
+  string type = 13; // MIME type
+  string format = 14;
+  string exif = 15; // Exif metadata
+  string location = 16;
+}
+
+message PaginationRequest {
+  uint64 page = 1;
+  uint64 size = 2;
+  uint64 limit = 3;
+}
+
+message PaginationResponsePost {
+  uint64 CurrentPage = 1;
+  uint64 PageSize = 2;
+  uint64 TotalPages = 3;
+  repeated Post post = 4;
+}
+
+message PaginationResponseComments {
+  uint64 CurrentPage = 1;
+  uint64 PageSize = 2;
+  uint64 TotalPages = 3;
+  repeated Post post = 4;
+}
+
+message PostCommentsByIdRequest {
+  uint64 PostId = 1;
+}
+
+message PostCommentsByIdResponse {
+  uint64 PostId = 1;
+  repeated PostComment comments = 2;
+}
 
 service CrudPostService {
-  rpc CreatePostLike(CreateLikeRequest) returns (CreateLikeResponse);
+  rpc ListPosts(PaginationRequest) returns (PaginationResponsePost);
+  rpc ListComments(PaginationRequest) returns (PaginationResponseComments);
+  rpc PostCommentsById(PostCommentsByIdRequest) returns (PostCommentsByIdResponse);
 }
+
