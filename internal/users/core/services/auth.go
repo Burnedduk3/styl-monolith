@@ -20,7 +20,7 @@ type LoginService interface {
 	Logout(tokenId, email string) error
 	Refresh(tokenId, email string) (domain.UserAuth, error)
 	ChangePassword() error
-	DeleteUser(email string) error
+	DeleteUser(email, tokenHash string) error
 }
 
 func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService {
@@ -32,25 +32,24 @@ func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService
 
 func (l *LoginServiceStruct) Login(email, password string) (domain.UserAuth, domain.User, error) {
 	l.logger.Debug("Starting login method")
-	l.logger.Debug("Fetching User from database with email: ", email)
-	user, err := l.awsAuth.FetchUserFromDatabase(email)
-	if err != nil {
-		return domain.UserAuth{}, domain.User{}, err
-	}
 	l.logger.Debug("signing in user with email: ", email)
 	userAuth, err := l.awsAuth.SignInCognito(email, password)
 	if err != nil {
 		return domain.UserAuth{}, domain.User{}, err
 	}
-	userAuth.UserId = user.ID
 	h := sha256.New()
 	h.Write([]byte(userAuth.IdToken))
 	idTokenHash := base64.StdEncoding.EncodeToString(h.Sum(nil))
 	userAuth.IdTokenHash = idTokenHash
-	l.logger.Debug("User fetched from database, saving token to database")
+	l.logger.Debug("SavingTokenToDatabase")
 	err = l.awsAuth.SaveTokensToDynamoDB(userAuth)
 	if err != nil {
-		return domain.UserAuth{}, domain.User{}, err
+		return userAuth, domain.User{}, err
+	}
+	l.logger.Debug("Fetching User from database with email: ", email)
+	user, err := l.awsAuth.FetchUserFromDatabase(email, userAuth.IdTokenHash)
+	if err != nil {
+		return userAuth, domain.User{}, err
 	}
 	l.logger.Debug("Tokens Successfully saved to database saved to database")
 	return userAuth, user, nil
@@ -67,7 +66,7 @@ func (l *LoginServiceStruct) SignUp(user domain.User) (domain.User, error) {
 func (l *LoginServiceStruct) Logout(tokenId, email string) error {
 	l.logger.Debug("Starting logout method")
 	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
-	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId, email)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoByIdAndEmail(tokenId, email)
 	if err != nil {
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return err
@@ -88,7 +87,7 @@ func (l *LoginServiceStruct) Logout(tokenId, email string) error {
 func (l *LoginServiceStruct) Refresh(tokenId, email string) (domain.UserAuth, error) {
 	l.logger.Debug("Starting refresh method")
 	l.logger.Debug("Fetching tokens from database with tokenId: ", tokenId)
-	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenId, email)
+	userAuth, err := l.awsAuth.GetTokensFromDynamoByIdAndEmail(tokenId, email)
 	if err != nil {
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return userAuth, err
@@ -132,10 +131,10 @@ func (l *LoginServiceStruct) ChangePassword() error {
 	return nil
 }
 
-func (l *LoginServiceStruct) DeleteUser(email string) error {
+func (l *LoginServiceStruct) DeleteUser(email, tokenHash string) error {
 	l.logger.Debug("Starting delete method")
 	l.logger.Debug("Fetching User from database with email: ", email)
-	user, err := l.awsAuth.FetchUserFromDatabase(email)
+	user, err := l.awsAuth.FetchUserFromDatabase(email, tokenHash)
 	if err != nil {
 		l.logger.Debug("Error fetching User from database with email: ", email)
 		return err

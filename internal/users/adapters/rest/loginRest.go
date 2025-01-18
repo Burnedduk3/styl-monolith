@@ -129,7 +129,18 @@ func (l *LoginRestStruct) DeleteUserAccount(ech echo.Context) error {
 		l.logger.Error(domErr.Error())
 		return errorhandler.HandleError(ech, domErr, l.logger)
 	}
-	err := l.loginService.DeleteUser(body.Email)
+
+	tokenHashI := ech.Get("tokenHash")
+	tokenHash, ok := tokenHashI.(string)
+	if !ok {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestJsonBadlyFormated,
+			"Invalid token hash format",
+			nil)
+		l.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, l.logger)
+	}
+	err := l.loginService.DeleteUser(body.Email, tokenHash)
 	if err != nil {
 		l.logger.Error(err)
 		return errorhandler.HandleError(ech, err, l.logger)

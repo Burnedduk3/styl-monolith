@@ -1,45 +1,29 @@
 package middleware
 
 import (
-	"bytes"
-	"encoding/json"
 	"github.com/labstack/echo/v4"
-	"io"
 	"net/http"
 	"styl-monolith/internal/users/core/ports"
 	"styl-monolith/pkg/utils/jwt"
+	"time"
 )
 
-func ValidateTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc {
+// ValidateAccessTokenWithRepository is a middleware that validates an access token using the provided repository.
+// It ensures the token is valid, not expired, and of correct use, attaching user claims to the context for further use.
+// If the token is missing, invalid, or expired, it returns an HTTP error.
+func ValidateAccessTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// Get token hash from the request header
-			tokenHash := c.Request().Header.Get("Authorization")
-			if tokenHash == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Missing token hash in Authorization header")
-			}
-			// Read and parse the body
-			bodyBytes, err := io.ReadAll(c.Request().Body) // Reading the request body
-			if err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, "Failed to read request body")
+			AuthHeader := c.Request().Header.Get("Authorization")
+			if AuthHeader == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Missing access token in Authorization header")
 			}
 
-			// Restore the body stream so other handlers/middleware can read it
-			c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-			// Parse the body as JSON to extract the email (if expected format is JSON)
-			var bodyData map[string]interface{}
-			if err = json.Unmarshal(bodyBytes, &bodyData); err != nil {
-				return echo.NewHTTPError(http.StatusBadRequest, "Invalid JSON format in request body")
-			}
-
-			email, ok := bodyData["email"].(string)
-			if !ok || email == "" {
-				return echo.NewHTTPError(http.StatusBadRequest, "Email not found in request body")
-			}
+			tokenHash := AuthHeader[7:]
 
 			// Query the repository to get token data by token ID
-			token, err := repo.GetTokensFromDynamoById(tokenHash, email)
+			token, err := repo.GetTokensFromDynamoById(tokenHash)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Failed to retrieve token: "+err.Error())
 			}
@@ -50,8 +34,19 @@ func ValidateTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 			}
 
+			if claims.TokenUse != "access" {
+
+			}
+
+			// Validate current time is between claims.IssuedAt and claims.Expires
+			currentTime := time.Now().Unix() + 10
+			if currentTime < claims.IssuedAt || currentTime > claims.Expires {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Token is not valid at the current time")
+			}
+
 			// Attach claims to context for downstream usage
-			c.Set("userClaims", claims)
+			c.Set("email", claims.Email)
+			c.Set("username", claims.Username)
 
 			// Pass control to the next handler
 			return next(c)

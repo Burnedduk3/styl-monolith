@@ -52,14 +52,14 @@ func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudUserDomainHandler := config.BuildUserCrudDomainHandler(logger)
 	loginUserDomainHandler := config.BuildLoginUserDomainHandler(logger)
 	dynamodbRepo := config.CreateAwsAuthClient(logger)
-	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger, false, middleware.ValidateTokenWithRepository(dynamodbRepo))
-	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, false, nil)
+	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger, true, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
+	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, true, nil)
 }
 
 func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudMediaDomainHandler := config.BuildMediaCrudDomainHandler(logger)
 	dynamodbRepo := config.CreateAwsAuthClient(logger)
-	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateTokenWithRepository(dynamodbRepo))
+	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
 }
 
 // main initializes and starts both an HTTP server using Echo and a gRPC server on their respective ports.

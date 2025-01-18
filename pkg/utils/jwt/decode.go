@@ -4,26 +4,25 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"strings"
 	"styl-monolith/pkg/errorhandler"
 )
 
 type AccessJwtClaims struct {
-	Username string              `json:"username"`
-	Email    string              `json:"email"`
-	TokenUse string              `json:"token_use"`
-	Expires  timestamp.Timestamp `json:"exp"`
-	IssuedAt timestamp.Timestamp `json:"iat"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	TokenUse string `json:"token_use"`
+	Expires  int64  `json:"exp"`
+	IssuedAt int64  `json:"iat"`
 }
 type IdJwtClaims struct {
-	Username  string              `json:"cognito:username"`
-	Email     string              `json:"email"`
-	TokenUse  string              `json:"token_use"`
-	Phone     string              `json:"phone_number"`
-	Expires   timestamp.Timestamp `json:"exp"`
-	IssuedAt  timestamp.Timestamp `json:"iat"`
-	Birthdate string              `json:"birthdate"`
+	Username  string `json:"cognito:username"`
+	Email     string `json:"email"`
+	TokenUse  string `json:"token_use"`
+	Phone     string `json:"phone_number"`
+	Expires   int64  `json:"exp"`
+	IssuedAt  int64  `json:"iat"`
+	Birthdate string `json:"birthdate"`
 }
 
 // decodeJWT is a helper function that decodes a JWT token and unmarshals its payload into the provided claims object.

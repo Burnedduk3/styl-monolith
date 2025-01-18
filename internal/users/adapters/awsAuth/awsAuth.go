@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/viper"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"styl-monolith/internal/users/adapters/rest/models"
 	"styl-monolith/internal/users/core/domain"
@@ -181,17 +180,17 @@ func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error)
 		return domain.UserAuth{}, fmt.Errorf("authentication failed: %v", err)
 	}
 	userAuth := domain.UserAuth{
-		AccessToken:  *authResponse.AuthenticationResult.AccessToken,
-		RefreshToken: *authResponse.AuthenticationResult.RefreshToken,
-		IdToken:      *authResponse.AuthenticationResult.IdToken,
-		UserId:       0,
-		Email:        email,
+		AccessToken:       *authResponse.AuthenticationResult.AccessToken,
+		RefreshToken:      *authResponse.AuthenticationResult.RefreshToken,
+		IdToken:           *authResponse.AuthenticationResult.IdToken,
+		Email:             email,
+		ExpiryAccessToken: authResponse.AuthenticationResult.ExpiresIn,
 	}
 	return userAuth, nil
 }
 
-func (a *AwsAuth) FetchUserFromDatabase(email string) (domain.User, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("api/v1/user?email=%s", email)), nil)
+func (a *AwsAuth) FetchUserFromDatabase(email, tokenHash string) (domain.User, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("private/api/v1/user?email=%s", email)), nil)
 	if err != nil {
 		return domain.User{}, errorhandler.NewDomainError(
 			errorhandler.ErrUserNotFound,
@@ -199,6 +198,7 @@ func (a *AwsAuth) FetchUserFromDatabase(email string) (domain.User, error) {
 			err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenHash))
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
@@ -222,7 +222,10 @@ func (a *AwsAuth) FetchUserFromDatabase(email string) (domain.User, error) {
 	}
 
 	umarshaledUser := models.UserResponse{}
-	_ = json.Unmarshal(body, &umarshaledUser)
+	err = json.Unmarshal(body, &umarshaledUser)
+	if err != nil {
+		return domain.User{}, err
+	}
 	return umarshaledUser.ToDomainUser(), nil
 }
 
@@ -251,7 +254,7 @@ func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
 			"access_token":     &dynamodbTypes.AttributeValueMemberS{Value: userAuth.AccessToken},
 			"refresh_token":    &dynamodbTypes.AttributeValueMemberS{Value: userAuth.RefreshToken},
 			"token_id":         &dynamodbTypes.AttributeValueMemberS{Value: userAuth.IdTokenHash},
-			"user_id":          &dynamodbTypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", userAuth.UserId)},
+			"expiry":           &dynamodbTypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", userAuth.ExpiryAccessToken)},
 			"user_email":       &dynamodbTypes.AttributeValueMemberS{Value: userAuth.Email},
 		},
 	}
@@ -268,7 +271,37 @@ func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {
 	return nil
 }
 
-func (a *AwsAuth) GetTokensFromDynamoById(tokenId, email string) (domain.UserAuth, error) {
+func (a *AwsAuth) GetTokensFromDynamoById(tokenId string) (domain.UserAuth, error) {
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
+		KeyConditionExpression: aws.String("token_id = :tid"),
+		ExpressionAttributeValues: map[string]dynamodbTypes.AttributeValue{
+			":tid": &dynamodbTypes.AttributeValueMemberS{Value: tokenId},
+		},
+	}
+
+	result, err := a.dynamoClient.Query(context.TODO(), input)
+	if err != nil {
+		return domain.UserAuth{}, fmt.Errorf("failed to query token from DynamoDB: %v", err)
+	}
+	if len(result.Items) == 0 {
+		return domain.UserAuth{}, fmt.Errorf("no token found with id: %s", tokenId)
+	}
+
+	item := result.Items[0]
+
+	userAuth := domain.UserAuth{
+		IdToken:      item["id_token_cognito"].(*dynamodbTypes.AttributeValueMemberS).Value,
+		AccessToken:  item["access_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
+		RefreshToken: item["refresh_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
+		IdTokenHash:  item["token_id"].(*dynamodbTypes.AttributeValueMemberS).Value,
+		Email:        item["user_email"].(*dynamodbTypes.AttributeValueMemberS).Value,
+	}
+
+	return userAuth, nil
+}
+
+func (a *AwsAuth) GetTokensFromDynamoByIdAndEmail(tokenId, email string) (domain.UserAuth, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(viper.GetString("AWS_DYNAMODB_TOKENS_TABLE")),
 		Key: map[string]dynamodbTypes.AttributeValue{
@@ -284,16 +317,11 @@ func (a *AwsAuth) GetTokensFromDynamoById(tokenId, email string) (domain.UserAut
 	if result.Item == nil {
 		return domain.UserAuth{}, fmt.Errorf("no token found with id: %s", tokenId)
 	}
-	uintId, err := strconv.ParseUint(result.Item["user_id"].(*dynamodbTypes.AttributeValueMemberN).Value, 10, 64)
-	if err != nil {
-		return domain.UserAuth{}, fmt.Errorf("invalid user_id format in database: %v", err)
-	}
 	userAuth := domain.UserAuth{
 		IdToken:      result.Item["id_token_cognito"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		AccessToken:  result.Item["access_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		RefreshToken: result.Item["refresh_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		IdTokenHash:  result.Item["token_id"].(*dynamodbTypes.AttributeValueMemberS).Value,
-		UserId:       uint(uintId),
 		Email:        result.Item["user_email"].(*dynamodbTypes.AttributeValueMemberS).Value,
 	}
 
@@ -319,17 +347,11 @@ func (a *AwsAuth) GetTokensFromDynamoByEmail(email string) (domain.UserAuth, err
 	}
 
 	item := result.Items[0]
-	uintId, err := strconv.ParseUint(item["user_id"].(*dynamodbTypes.AttributeValueMemberN).Value, 10, 64)
-	if err != nil {
-		return domain.UserAuth{}, fmt.Errorf("invalid user_id format in database: %v", err)
-	}
-
 	userAuth := domain.UserAuth{
 		IdToken:      item["id_token_cognito"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		AccessToken:  item["access_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		RefreshToken: item["refresh_token"].(*dynamodbTypes.AttributeValueMemberS).Value,
 		IdTokenHash:  item["token_id"].(*dynamodbTypes.AttributeValueMemberS).Value,
-		UserId:       uint(uintId),
 		Email:        item["user_email"].(*dynamodbTypes.AttributeValueMemberS).Value,
 	}
 
@@ -373,7 +395,6 @@ func (a *AwsAuth) RefreshTokensWithCognito(userAuth domain.UserAuth, username st
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		IdTokenHash:  userAuth.IdTokenHash,
-		UserId:       userAuth.UserId,
 		Email:        userAuth.Email,
 	}
 	return newAuth, nil
