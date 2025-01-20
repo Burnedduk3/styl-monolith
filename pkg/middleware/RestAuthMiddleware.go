@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"styl-monolith/internal/users/core/ports"
 	"styl-monolith/pkg/utils/jwt"
-	"time"
+	"styl-monolith/pkg/validator"
 )
 
 // ValidateAccessTokenWithRepository is a middleware that validates an access token using the provided repository.
@@ -38,9 +38,7 @@ func ValidateAccessTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc
 
 			}
 
-			// Validate current time is between claims.IssuedAt and claims.Expires
-			currentTime := time.Now().Unix() + 10
-			if currentTime < claims.IssuedAt || currentTime > claims.Expires {
+			if validator.ValidateIfActualTimeIsBetweenTwoTimestamps(claims.IssuedAt, claims.Expires) {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Token is not valid at the current time")
 			}
 

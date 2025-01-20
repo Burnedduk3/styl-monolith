@@ -1,12 +1,10 @@
 package awsAuth
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -15,10 +13,7 @@ import (
 	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"io"
-	"net/http"
 	"strings"
-	"styl-monolith/internal/users/adapters/rest/models"
 	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/ports"
 	"styl-monolith/pkg/errorhandler"
@@ -30,12 +25,10 @@ type AwsAuth struct {
 	log           *logrus.Logger
 	dynamoClient  *dynamodb.Client
 	cognitoClient *cognitoidentityprovider.Client
-	httpClient    *http.Client
-	baseUrl       string
 }
 
-func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client, client *http.Client, baseUrl string) ports.LoginPort {
-	return &AwsAuth{log: log, dynamoClient: dynamoClient, cognitoClient: cognitoClient, httpClient: client, baseUrl: baseUrl}
+func NewAwsAuthRepository(log *logrus.Logger, dynamoClient *dynamodb.Client, cognitoClient *cognitoidentityprovider.Client) ports.LoginPort {
+	return &AwsAuth{log: log, dynamoClient: dynamoClient, cognitoClient: cognitoClient}
 }
 
 // calculateSecretHash calculates Cognito's required SECRET_HASH
@@ -46,7 +39,7 @@ func (a *AwsAuth) calculateSecretHash(clientSecret, clientId, username string) s
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
+func (a *AwsAuth) SignUpInCognito(user domain.User) error {
 	// Prepare user attributes for the new user
 	userPoolID := viper.GetString("AWS_COGNITO_USER_POOL_ID")
 	userAttributes := []types.AttributeType{
@@ -94,8 +87,7 @@ func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
 	// Call Cognito AdminCreateUser API
 	_, err := a.cognitoClient.AdminCreateUser(context.TODO(), input)
 	if err != nil {
-
-		return domain.User{}, errorhandler.NewDomainError(
+		return errorhandler.NewDomainError(
 			errorhandler.ErrCreatingUserInCognitoUserPool,
 			errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool),
 			err)
@@ -109,54 +101,12 @@ func (a *AwsAuth) SignUpInCognito(user domain.User) (domain.User, error) {
 		Permanent:  true,                      // Mark the password as permanent
 	})
 	if err != nil {
-		return domain.User{}, errorhandler.NewDomainError(
+		return errorhandler.NewDomainError(
 			errorhandler.ErrSettingPermanentPassword,
 			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
 			err)
 	}
-	a.log.Info(logger.SuccessfullyCreatedCognitoUser)
-	a.log.Info(fmt.Sprintf(logger.CreateUserOnDB, user.Email))
-	payloadBytes, err := json.Marshal(user.UserToUserPayload())
-	if err != nil {
-		return domain.User{}, errorhandler.NewDomainError(
-			errorhandler.ErrSettingPermanentPassword,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
-			err)
-	}
-	// Create a new POST request
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", a.baseUrl, "api/v1/user"), bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return domain.User{}, errorhandler.NewDomainError(
-			errorhandler.ErrSettingPermanentPassword,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCreatingUserInCognitoUserPool), user.Username),
-			err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return domain.User{}, err
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(resp.Body)
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return domain.User{}, err
-	}
-
-	// Check for non-2xx status codes and handle errors
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return domain.User{}, err
-	}
-
-	umarshaledUser := models.UserResponse{}
-	_ = json.Unmarshal(body, &umarshaledUser)
-	return umarshaledUser.ToDomainUser(), nil
+	return nil
 }
 
 func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error) {
@@ -187,63 +137,6 @@ func (a *AwsAuth) SignInCognito(email, password string) (domain.UserAuth, error)
 		ExpiryAccessToken: authResponse.AuthenticationResult.ExpiresIn,
 	}
 	return userAuth, nil
-}
-
-func (a *AwsAuth) FetchUserFromDatabase(email, tokenHash string) (domain.User, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("private/api/v1/user?email=%s", email)), nil)
-	if err != nil {
-		return domain.User{}, errorhandler.NewDomainError(
-			errorhandler.ErrUserNotFound,
-			errorhandler.GetErrorMessage(errorhandler.ErrUserNotFound),
-			err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenHash))
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return domain.User{}, err
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(resp.Body)
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return domain.User{}, err
-	}
-
-	// Check for non-2xx status codes and handle errors
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return domain.User{}, err
-	}
-
-	umarshaledUser := models.UserResponse{}
-	err = json.Unmarshal(body, &umarshaledUser)
-	if err != nil {
-		return domain.User{}, err
-	}
-	return umarshaledUser.ToDomainUser(), nil
-}
-
-func (a *AwsAuth) DeleteUserFromDatabase(id uint) error {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/%s", a.baseUrl, fmt.Sprintf("api/v1/user/%d", id)), nil)
-	if err != nil {
-		return errorhandler.NewDomainError(
-			errorhandler.ErrUserNotFound,
-			errorhandler.GetErrorMessage(errorhandler.ErrUserNotFound),
-			err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	_, err = a.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (a *AwsAuth) SaveTokensToDynamoDB(userAuth domain.UserAuth) error {

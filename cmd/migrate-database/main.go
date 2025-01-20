@@ -51,5 +51,9 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	err = db.AutoMigrate(&models.Report{})
+	if err != nil {
+		logger.Fatal(err)
+	}
 
 }

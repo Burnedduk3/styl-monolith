@@ -50,6 +50,11 @@ func (c *CrudServiceStruct) CreateRole(requestRole domain.Role) (domain.Role, er
 }
 
 func (c *CrudServiceStruct) CreateUser(requestUser domain.User) (domain.User, error) {
+	defaultRole, err := c.GetRoleByName("default")
+	if err != nil {
+		return domain.User{}, err
+	}
+	requestUser.Role = defaultRole
 	dUser, err := c.userCrudRepo.CreateUser(requestUser)
 	if err != nil {
 		return domain.User{}, err

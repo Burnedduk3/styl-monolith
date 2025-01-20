@@ -19,7 +19,6 @@ type Post struct {
 	IsApproved      bool
 	IsSpam          bool
 	IsReported      bool
-	IsBlocked       bool
 	TagIds          []uint // from tag domain
 	PostImages      []PostImage
 	PostComments    []PostComment
@@ -40,6 +39,7 @@ type PostComment struct {
 	PostId     uint
 	Comment    string
 	Created    time.Time
+	Deleted    time.Time
 	IsDeleted  bool
 	IsReported bool
 }

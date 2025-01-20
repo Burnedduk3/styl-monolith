@@ -6,7 +6,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"styl-monolith/internal/users/core/domain"
 	"styl-monolith/internal/users/core/ports"
+	"styl-monolith/pkg/errorhandler"
 	"styl-monolith/pkg/utils/jwt"
+	"styl-monolith/pkg/validator"
 )
 
 type LoginServiceStruct struct {
@@ -15,12 +17,12 @@ type LoginServiceStruct struct {
 }
 
 type LoginService interface {
-	Login(email, password string) (domain.UserAuth, domain.User, error)
-	SignUp(domain.User) (domain.User, error)
+	Login(email, password string) (domain.UserAuth, error)
+	SignUp(domain.User) error
 	Logout(tokenId, email string) error
 	Refresh(tokenId, email string) (domain.UserAuth, error)
 	ChangePassword() error
-	DeleteUser(email, tokenHash string) error
+	DeleteUserInCognito(email, tokenHash string) error
 }
 
 func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService {
@@ -30,12 +32,12 @@ func NewLoginService(log *logrus.Logger, loginPort ports.LoginPort) LoginService
 	}
 }
 
-func (l *LoginServiceStruct) Login(email, password string) (domain.UserAuth, domain.User, error) {
+func (l *LoginServiceStruct) Login(email, password string) (domain.UserAuth, error) {
 	l.logger.Debug("Starting login method")
 	l.logger.Debug("signing in user with email: ", email)
 	userAuth, err := l.awsAuth.SignInCognito(email, password)
 	if err != nil {
-		return domain.UserAuth{}, domain.User{}, err
+		return domain.UserAuth{}, err
 	}
 	h := sha256.New()
 	h.Write([]byte(userAuth.IdToken))
@@ -44,23 +46,18 @@ func (l *LoginServiceStruct) Login(email, password string) (domain.UserAuth, dom
 	l.logger.Debug("SavingTokenToDatabase")
 	err = l.awsAuth.SaveTokensToDynamoDB(userAuth)
 	if err != nil {
-		return userAuth, domain.User{}, err
-	}
-	l.logger.Debug("Fetching User from database with email: ", email)
-	user, err := l.awsAuth.FetchUserFromDatabase(email, userAuth.IdTokenHash)
-	if err != nil {
-		return userAuth, domain.User{}, err
+		return userAuth, err
 	}
 	l.logger.Debug("Tokens Successfully saved to database saved to database")
-	return userAuth, user, nil
+	return userAuth, nil
 }
 
-func (l *LoginServiceStruct) SignUp(user domain.User) (domain.User, error) {
-	createdUser, err := l.awsAuth.SignUpInCognito(user)
+func (l *LoginServiceStruct) SignUp(user domain.User) error {
+	err := l.awsAuth.SignUpInCognito(user)
 	if err != nil {
-		return domain.User{}, err
+		return err
 	}
-	return createdUser, nil
+	return nil
 }
 
 func (l *LoginServiceStruct) Logout(tokenId, email string) error {
@@ -131,21 +128,27 @@ func (l *LoginServiceStruct) ChangePassword() error {
 	return nil
 }
 
-func (l *LoginServiceStruct) DeleteUser(email, tokenHash string) error {
-	l.logger.Debug("Starting delete method")
-	l.logger.Debug("Fetching User from database with email: ", email)
-	user, err := l.awsAuth.FetchUserFromDatabase(email, tokenHash)
+func (l *LoginServiceStruct) DeleteUserInCognito(email, tokenHash string) error {
+	userAuth, err := l.awsAuth.GetTokensFromDynamoById(tokenHash)
 	if err != nil {
 		l.logger.Debug("Error fetching User from database with email: ", email)
 		return err
 	}
-	l.logger.Debug("Deleting User from database with id: ", user.ID)
-	err = l.awsAuth.DeleteUserFromDatabase(user.ID)
+	DecodedToken, err := jwt.DecodeIdJWT(userAuth.IdToken)
 	if err != nil {
-		l.logger.Debug("Error fetching User from database with email: ", email)
+		l.logger.Debug("Error decoding token with id: ", userAuth.IdToken)
 		return err
 	}
-	err = l.awsAuth.DeleteUserInCognito(user.Email)
+	if !validator.ValidateIfActualTimeIsBetweenTwoTimestamps(DecodedToken.IssuedAt, DecodedToken.Expires) {
+		l.logger.Debug("Token is not valid at the current time")
+		return errorhandler.NewDomainError(
+			errorhandler.ErrAuthInvalidToken,
+			errorhandler.GetErrorMessage(errorhandler.ErrAuthInvalidToken),
+			nil,
+		)
+	}
+	l.logger.Debug("Deleting user from cognito with email: ", userAuth.Email)
+	err = l.awsAuth.DeleteUserInCognito(userAuth.Email)
 	if err != nil {
 		l.logger.Debug("Error fetching User from database with email: ", email)
 		return err
