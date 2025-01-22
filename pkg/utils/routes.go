@@ -117,13 +117,13 @@ func RegisterRoutesAutomatically(e *echo.Echo, handler interface{}, methodPrefix
 		httpVerb := getHTTPVerbFromMethodName(method.Name)
 		routePath, routeParam := buildRoutePath(methodPrefix, method.Name, httpVerb)
 
-		log.Debug(fmt.Sprintf("Registering route: %s %s (private: %t)", httpVerb, routePath, isPrivate))
-
 		if isPrivate {
+			log.Debug(fmt.Sprintf("Registering route: %s private%s", httpVerb, routePath))
 			echoGroup.Add(httpVerb, routePath, func(c echo.Context) error {
 				return callHandlerMethod(v, c, method, routeParam)
 			})
 		} else {
+			log.Debug(fmt.Sprintf("Registering route: %s %s", httpVerb, routePath))
 			e.Add(httpVerb, routePath, func(c echo.Context) error {
 				return callHandlerMethod(v, c, method, routeParam)
 			})

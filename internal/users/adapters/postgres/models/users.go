@@ -81,6 +81,32 @@ func NewPostgresUserFromDomainUser(user domain.User) User {
 	return u
 }
 
+// NewPostgresReportFromDomainReport maps a domain.Report to a PostgreSQL Report struct.
+func NewPostgresReportFromDomainReport(report domain.Report) Report {
+	return Report{
+		Model: gorm.Model{
+			ID: report.ID,
+		},
+		UserId:           report.UserId,
+		ReportType:       report.ReportType,
+		ReportReason:     report.ReportReason,
+		ReportedByUserId: report.ReportedByUserId,
+		ReportedAt:       report.ReportedAt,
+	}
+}
+
+// ToReportDomain maps a PostgreSQL Report model to a domain.Report.
+func (r *Report) ToReportDomain() domain.Report {
+	return domain.Report{
+		ID:               r.ID,
+		UserId:           r.UserId,
+		ReportType:       r.ReportType,
+		ReportReason:     r.ReportReason,
+		ReportedByUserId: r.ReportedByUserId,
+		ReportedAt:       r.ReportedAt,
+	}
+}
+
 func (u *User) ToUserDomain() domain.User {
 	mappedUser := domain.User{
 		ID:       u.Model.ID,

@@ -27,6 +27,10 @@ type CrudRest interface {
 	ListUsers(ech echo.Context) error
 	ListRoles(ech echo.Context) error
 	UpdateUserRoleById(ech echo.Context, id string) error
+	CreateReport(ech echo.Context) error
+	DeleteReportById(ech echo.Context, id string) error
+	GetReportById(ech echo.Context, id string) error
+	GetUserReportsByUserId(ech echo.Context, userId string) error
 }
 
 // crudRestStruct represents a REST handler structure for CRUD operations on users and roles.
@@ -424,4 +428,108 @@ func (c *crudRestStruct) UpdateUserRoleById(ech echo.Context, stringId string) e
 		return errorhandler.HandleError(ech, err, c.logger)
 	}
 	return ech.JSON(http.StatusOK, dUser)
+}
+
+func (c *crudRestStruct) CreateReport(ech echo.Context) error {
+	c.logger.Debug("CreateReport method called")
+
+	var body models.ReportPayload
+	if err := ech.Bind(&body); err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrReportRequestPayloadBadRequestJsonBadlyFormated,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportRequestPayloadBadRequestJsonBadlyFormated),
+			err,
+		)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+
+	if err := body.Validate(); err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+
+	report := body.ToReportDomain()
+	dReport, err := c.crudService.CreateUserReport(domain.User{ID: report.UserId}, report)
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+
+	return ech.JSON(http.StatusCreated, models.NewReportResponseFromDomainReport(dReport))
+}
+
+func (c *crudRestStruct) DeleteReportById(ech echo.Context, stringId string) error {
+	c.logger.Debug("DeleteReportById method called")
+
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrReportRequestPayloadValidationFailed,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportRequestPayloadValidationFailed),
+			err,
+		)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+
+	report := domain.Report{ID: uint(id)}
+	_, err = c.crudService.DeleteUserReport(domain.User{ID: report.UserId}, report)
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+
+	return ech.JSON(http.StatusOK, nil)
+}
+
+func (c *crudRestStruct) GetReportById(ech echo.Context, stringId string) error {
+	c.logger.Debug("GetReportById method called")
+
+	id, err := strconv.ParseUint(stringId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrReportRequestPayloadValidationFailed,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportRequestPayloadValidationFailed),
+			err,
+		)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+
+	report, err := c.crudService.GetReportById(uint(id))
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+
+	return ech.JSON(http.StatusOK, models.NewReportResponseFromDomainReport(report))
+}
+
+func (c *crudRestStruct) GetUserReportsByUserId(ech echo.Context, userId string) error {
+	c.logger.Debug("GetUserReports method called")
+
+	id, err := strconv.ParseUint(userId, 10, 64)
+	if err != nil {
+		domErr := errorhandler.NewDomainError(
+			errorhandler.ErrUserRequestPayloadBadRequestValidationError,
+			errorhandler.GetErrorMessage(errorhandler.ErrUserRequestPayloadBadRequestValidationError),
+			err,
+		)
+		c.logger.Error(domErr.Error())
+		return errorhandler.HandleError(ech, domErr, c.logger)
+	}
+
+	reports, err := c.crudService.GetUserReports(domain.User{ID: uint(id)})
+	if err != nil {
+		c.logger.Error(err)
+		return errorhandler.HandleError(ech, err, c.logger)
+	}
+
+	var response []models.ReportResponse
+	for _, report := range reports {
+		response = append(response, models.NewReportResponseFromDomainReport(report))
+	}
+
+	return ech.JSON(http.StatusOK, response)
 }

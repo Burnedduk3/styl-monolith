@@ -8,9 +8,10 @@ import (
 )
 
 type CrudServiceStruct struct {
-	logger       *logrus.Logger
-	userCrudRepo ports.UserPort
-	roleCrudRepo ports.RolePort
+	logger             *logrus.Logger
+	userCrudRepo       ports.UserPort
+	roleCrudRepo       ports.RolePort
+	userReportCrudRepo ports.UserReportRepository
 }
 
 type CrudService interface {
@@ -31,13 +32,18 @@ type CrudService interface {
 	GetUserByPhone(phone string) (domain.User, error)
 	ListUsers(offset, limit int) ([]domain.User, int, error)
 	ListRoles(offset, limit int) ([]domain.Role, int, error)
+	CreateUserReport(user domain.User, report domain.Report) (domain.Report, error)
+	DeleteUserReport(user domain.User, report domain.Report) (domain.Report, error)
+	GetUserReports(user domain.User) ([]domain.Report, error)
+	GetReportById(reportId uint) (domain.Report, error)
 }
 
-func NewCrudService(log *logrus.Logger, userCrudRepo ports.UserPort, roleRepo ports.RolePort) CrudService {
+func NewCrudService(log *logrus.Logger, userCrudRepo ports.UserPort, roleRepo ports.RolePort, userReportRepo ports.UserReportRepository) CrudService {
 	return &CrudServiceStruct{
-		logger:       log,
-		userCrudRepo: userCrudRepo,
-		roleCrudRepo: roleRepo,
+		logger:             log,
+		userCrudRepo:       userCrudRepo,
+		roleCrudRepo:       roleRepo,
+		userReportCrudRepo: userReportRepo,
 	}
 }
 
@@ -261,4 +267,56 @@ func (c *CrudServiceStruct) UpdateUserRole(userId, roleId uint) (domain.User, er
 		return domain.User{}, err
 	}
 	return user, nil
+}
+
+func (c *CrudServiceStruct) CreateUserReport(user domain.User, report domain.Report) (domain.Report, error) {
+	// Ensure the report is associated with the correct user
+	report.UserId = user.ID
+
+	// Create the report using the repository
+	createdReport, err := c.userReportCrudRepo.CreateReport(report)
+	if err != nil {
+		return domain.Report{}, err
+	}
+
+	return createdReport, nil
+}
+
+func (c *CrudServiceStruct) DeleteUserReport(user domain.User, report domain.Report) (domain.Report, error) {
+	// Ensure the report belongs to the user
+	if report.UserId != user.ID {
+		return domain.Report{}, errorhandler.NewDomainError(
+			errorhandler.ErrReportUnauthorizedDelete,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportUnauthorizedDelete),
+			nil,
+		)
+	}
+
+	// Use the repository to delete the report
+	err := c.userReportCrudRepo.DeleteReport(report.ID)
+	if err != nil {
+		return domain.Report{}, err
+	}
+
+	return report, nil
+}
+
+func (c *CrudServiceStruct) GetUserReports(user domain.User) ([]domain.Report, error) {
+	// Fetch reports by user ID from the repository
+	reports, err := c.userReportCrudRepo.GetReportByUserID(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return reports, nil
+}
+
+func (c *CrudServiceStruct) GetReportById(reportId uint) (domain.Report, error) {
+	// Fetch the report by ID from the repository
+	report, err := c.userReportCrudRepo.GetReportByID(reportId)
+	if err != nil {
+		return domain.Report{}, err
+	}
+
+	return report, nil
 }

@@ -24,3 +24,13 @@ type RolePort interface {
 	GetRoleByName(name string) (domain.Role, error)
 	PartialRoleUpdate(id uint, role domain.Role) (domain.Role, error)
 }
+
+type UserReportRepository interface {
+	CreateReport(report domain.Report) (domain.Report, error)
+	ListReports(page, size int) ([]domain.Report, int, error)
+	GetReportByID(id uint) (domain.Report, error)
+	DeleteReport(id uint) error
+	UpdateReport(report domain.Report) (domain.Report, error)
+	GetReportByUserID(id uint) ([]domain.Report, error)
+	PartialReportUpdate(id uint, report domain.Report) (domain.Report, error)
+}

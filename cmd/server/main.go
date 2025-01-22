@@ -53,7 +53,7 @@ func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	loginUserDomainHandler := config.BuildLoginUserDomainHandler(logger)
 	dynamodbRepo := config.CreateAwsAuthClient(logger)
 	utils.RegisterRoutesAutomatically(e, crudUserDomainHandler, initialPath, logger, true, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
-	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, true, nil)
+	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, false, nil)
 }
 
 func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {

@@ -148,3 +148,62 @@ type ReportResponse struct {
 	ReportedByUserId uint      `json:"reported_by_user_id"`
 	ReportedAt       time.Time `json:"reported_at"`
 }
+
+// NewReportResponseFromDomainReport converts a domain.Report object to a ReportResponse
+func NewReportResponseFromDomainReport(report domain.Report) ReportResponse {
+	return ReportResponse{
+		Id:               report.ID,
+		UserId:           report.UserId,
+		ReportType:       report.ReportType,
+		ReportReason:     report.ReportReason,
+		ReportedByUserId: report.ReportedByUserId,
+		ReportedAt:       report.ReportedAt,
+	}
+}
+
+type ReportPayload struct {
+	UserId           uint   `json:"user_id"`
+	ReportType       string `json:"report_type"`
+	ReportReason     string `json:"report_reason"`
+	ReportedByUserId uint   `json:"reported_by_user_id"`
+	ReportedAt       string `json:"reported_at"` // Use string for ISO8601 format
+}
+
+// ToReportDomain converts the ReportPayload struct to a Report domain model
+func (r *ReportPayload) ToReportDomain() domain.Report {
+	parsedTime, _ := time.Parse(time.RFC3339, r.ReportedAt) // Handle format parsing
+	return domain.Report{
+		UserId:           r.UserId,
+		ReportType:       r.ReportType,
+		ReportReason:     r.ReportReason,
+		ReportedByUserId: r.ReportedByUserId,
+		ReportedAt:       parsedTime,
+	}
+}
+
+// Validate ensures that the ReportPayload satisfies business rules
+func (r *ReportPayload) Validate() error {
+	if validator.IsStringEmpty(r.ReportType) ||
+		validator.IsStringEmpty(r.ReportReason) ||
+		r.UserId == 0 ||
+		r.ReportedByUserId == 0 ||
+		validator.IsStringEmpty(r.ReportedAt) {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportRequestPayloadValidationFailed,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportRequestPayloadValidationFailed),
+			nil,
+		)
+	}
+
+	// Validate time format for ReportedAt
+	if _, err := time.Parse(time.RFC3339, r.ReportedAt); err != nil {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportRequestPayloadValidationFailed,
+			"ReportedAt must be a valid ISO8601 formatted date and time",
+			err,
+		)
+	}
+
+	// Further validation can be added as needed (e.g., ReportType validation)
+	return nil
+}

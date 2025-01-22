@@ -20,6 +20,13 @@ const (
 	ErrRoleIncompleteParamsForCompleteUpdate         = "ROLE_005"
 	ErrRoleRequestPayloadBadRequestValidationError   = "ROLE_006"
 
+	// User report error handler
+	ErrReportDatabaseUnableToCompleteOperation         = "USER_REPORT_001"
+	ErrReportNotFound                                  = "USER_REPORT_002"
+	ErrReportUnauthorizedDelete                        = "USER_REPORT_003"
+	ErrReportRequestPayloadValidationFailed            = "USER_REPORT_004"
+	ErrReportRequestPayloadBadRequestJsonBadlyFormated = "USER_REPORT_005"
+
 	// Infra error handler
 	ErrSaveTokenToDynamo = "DYNAMO_01"
 
@@ -40,18 +47,23 @@ var errorMessages = map[string]string{
 	ErrRoleDatabaseUnableToCompleteOperation:         "unable to complete operation on specified role",
 	ErrUserDatabaseUnableToCompleteOperation:         "unable to complete operation on specified user",
 	ErrRoleRequestPayloadBadRequestValidationError:   "request payload for role is wrong, validation errors on inputs",
-	ErrRoleNotFound:                          "There is no role with the specified param: %v",
-	ErrUserNotFound:                          "There is no user with the specified param: %v",
-	ErrRoleIncompleteParamsForCompleteUpdate: "Incomplete role params for complete update",
-	ErrUserIncompleteParamsForCompleteUpdate: "Incomplete user params for complete update",
-	ErrCreatingUserInCognitoUserPool:         "unable to create user in cognito user pool: %v",
-	ErrSettingPermanentPassword:              "Error setting permanent password: %v",
-	ErrDeletingUserFromCognitoUserPool:       "Error deleting cognito user: %v",
-	ErrSaveTokenToDynamo:                     "Error saving token to dynamo: %v",
-	ErrAuthInvalidToken:                      "Invalid JWT token",
-	ErrAuthErrorDecodingHeader:               "Error decoding header: %v",
-	ErrAuthErrorDecodingPayload:              "Error decoding payload: %v",
-	ErrAuthErrorUnmarshalingClaims:           "Error unmarshaling claims: %v",
+	ErrRoleNotFound:                                    "There is no role with the specified param: %v",
+	ErrUserNotFound:                                    "There is no user with the specified param: %v",
+	ErrRoleIncompleteParamsForCompleteUpdate:           "Incomplete role params for complete update",
+	ErrUserIncompleteParamsForCompleteUpdate:           "Incomplete user params for complete update",
+	ErrCreatingUserInCognitoUserPool:                   "unable to create user in cognito user pool: %v",
+	ErrSettingPermanentPassword:                        "Error setting permanent password: %v",
+	ErrDeletingUserFromCognitoUserPool:                 "Error deleting cognito user: %v",
+	ErrSaveTokenToDynamo:                               "Error saving token to dynamo: %v",
+	ErrAuthInvalidToken:                                "Invalid JWT token",
+	ErrAuthErrorDecodingHeader:                         "Error decoding header: %v",
+	ErrAuthErrorDecodingPayload:                        "Error decoding payload: %v",
+	ErrAuthErrorUnmarshalingClaims:                     "Error unmarshaling claims: %v",
+	ErrReportDatabaseUnableToCompleteOperation:         "Unable to complete operation on specified report",
+	ErrReportNotFound:                                  "Report not found with id: %s",
+	ErrReportUnauthorizedDelete:                        "report does not belong to the provided user",
+	ErrReportRequestPayloadValidationFailed:            "Report request payload validation failed, required fields are missing or invalid",
+	ErrReportRequestPayloadBadRequestJsonBadlyFormated: "Request payload for report is invalid, JSON is badly formatted",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.
