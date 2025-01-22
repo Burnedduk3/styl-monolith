@@ -18,10 +18,14 @@ import (
 	stylGrpc "styl-monolith/internal/media/adapters/grcp"
 )
 
+// apiVersion specifies the current API version being used in the application, typically for routing or version control.
 var apiVersion = "v1"
+
+// initialPath defines the base API path using the current API version concatenated to "/api/".
 var initialPath = "/api/" + apiVersion
 
-// init configures the application by loading environment variables and setting up the logger.
+// init initializes the application configuration using Viper and sets default values for required environment variables.
+// It ensures that mandatory configuration variables are set; otherwise, it panics with a message.
 func init() {
 	// Initialize Viper to load configurations
 	viper.AutomaticEnv() // Automatically read from environment variables
@@ -48,6 +52,7 @@ func init() {
 	}
 }
 
+// registerUsersDomainRoutes registers CRUD and login endpoints for the users domain, with appropriate middleware for routing.
 func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudUserDomainHandler := config.BuildUserCrudDomainHandler(logger)
 	loginUserDomainHandler := config.BuildLoginUserDomainHandler(logger)
@@ -56,14 +61,14 @@ func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	utils.RegisterRoutesAutomatically(e, loginUserDomainHandler, initialPath, logger, false, nil)
 }
 
+// registerMediaDomainRoutes configures and registers routes for the media domain in the provided Echo instance.
 func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudMediaDomainHandler := config.BuildMediaCrudDomainHandler(logger)
 	dynamodbRepo := config.CreateAwsAuthClient(logger)
 	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
 }
 
-// main initializes and starts both an HTTP server using Echo and a gRPC server on their respective ports.
-// It handles server errorhandler gracefully and logs critical messages.
+// main initializes and starts both the Echo HTTP server and the gRPC server for handling various services and routes.
 func main() {
 	// Configure logger log level from environment variable
 	logLevel := viper.GetString("LOG_LEVEL")

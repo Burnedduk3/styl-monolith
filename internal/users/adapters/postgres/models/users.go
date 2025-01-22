@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// User represents a database model for application users with attributes such as personal details and account status.
 type User struct {
 	gorm.Model
 	Username    string `gorm:"unique"`
@@ -29,6 +30,8 @@ type User struct {
 	LastLogin   time.Time `gorm:"autoUpdateTime:milli"`
 }
 
+// Report represents a user-generated report within the system.
+// It includes details such as the report type, reason, reporting user, and timestamp of the report.
 type Report struct {
 	gorm.Model
 	UserId           uint `gorm:"index"`
@@ -38,6 +41,7 @@ type Report struct {
 	ReportedAt       time.Time
 }
 
+// NewPostgresUserFromDomainUser converts a domain.User into a Postgres-compatible User model for database operations.
 func NewPostgresUserFromDomainUser(user domain.User) User {
 	u := User{
 		Model: gorm.Model{
@@ -81,7 +85,7 @@ func NewPostgresUserFromDomainUser(user domain.User) User {
 	return u
 }
 
-// NewPostgresReportFromDomainReport maps a domain.Report to a PostgreSQL Report struct.
+// NewPostgresReportFromDomainReport converts a domain.Report into a Postgres-compatible Report model for database operations.
 func NewPostgresReportFromDomainReport(report domain.Report) Report {
 	return Report{
 		Model: gorm.Model{
@@ -95,7 +99,7 @@ func NewPostgresReportFromDomainReport(report domain.Report) Report {
 	}
 }
 
-// ToReportDomain maps a PostgreSQL Report model to a domain.Report.
+// ToReportDomain converts a Report model instance to a domain.Report, facilitating data transfer across layers.
 func (r *Report) ToReportDomain() domain.Report {
 	return domain.Report{
 		ID:               r.ID,
@@ -107,6 +111,7 @@ func (r *Report) ToReportDomain() domain.Report {
 	}
 }
 
+// ToUserDomain maps a User model instance to a domain.User instance, including reports and status conversions.
 func (u *User) ToUserDomain() domain.User {
 	mappedUser := domain.User{
 		ID:       u.Model.ID,
