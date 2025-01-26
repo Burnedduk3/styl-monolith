@@ -28,7 +28,7 @@ type MediaService interface {
 	// Post Operations
 	CreatePost(post domain.Post) (domain.Post, error)
 	DeletePost(postId uint) error
-	ListPosts(page, size int) ([]domain.Post, error)
+	ListPosts(page, size int) ([]domain.Post, int, error)
 	GetPost(postId uint) (domain.Post, error)
 	UpdatePost(postId uint, updatedPost domain.Post) (domain.Post, error)
 	ListPostsByUser(userId uint, page, size int) ([]domain.Post, error)
@@ -162,9 +162,13 @@ func (s *MediaServiceStruct) DeletePost(postId uint) error {
 	return s.postPort.DeletePost(postId)
 }
 
-func (s *MediaServiceStruct) ListPosts(page, size int) ([]domain.Post, error) {
+func (s *MediaServiceStruct) ListPosts(page, size int) ([]domain.Post, int, error) {
 	s.logger.Info("Listing paginated posts")
-	return s.postPort.ListPosts(page, size)
+	posts, totalPages, err := s.postPort.ListPosts(page, size)
+	if err != nil {
+		return []domain.Post{}, 0, err
+	}
+	return posts, totalPages, nil
 }
 
 func (s *MediaServiceStruct) GetPost(postId uint) (domain.Post, error) {

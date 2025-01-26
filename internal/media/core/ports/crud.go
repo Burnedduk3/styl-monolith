@@ -21,7 +21,7 @@ type CommentPort interface {
 type PostPort interface {
 	CreatePost(post domain.Post) (domain.Post, error)
 	DeletePost(postId uint) error
-	ListPosts(page, size int) ([]domain.Post, error)
+	ListPosts(page, size int) ([]domain.Post, int, error)
 	GetPost(postId uint) (domain.Post, error)
 	UpdatePost(postId uint, updatedData domain.Post) (domain.Post, error)
 	IncreasePostViewCount(postId uint) error

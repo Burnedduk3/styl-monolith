@@ -15,7 +15,6 @@ import (
 	"styl-monolith/pkg/utils"
 
 	pb "styl-monolith/generated/proto/media"
-	stylGrpc "styl-monolith/internal/media/adapters/grcp"
 )
 
 // apiVersion specifies the current API version being used in the application, typically for routing or version control.
@@ -68,6 +67,13 @@ func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
 }
 
+// registerMediaDomainRoutes configures and registers routes for the media domain in the provided Echo instance.
+func registerMediaDomainGrpc(serv *grpc.Server, logger *logrus.Logger) *grpc.Server {
+	grpcHandler := config.BuildMediaCrudDomainGrpc(logger)
+	pb.RegisterCrudPostServiceServer(serv, &grpcHandler)
+	return serv
+}
+
 // main initializes and starts both the Echo HTTP server and the gRPC server for handling various services and routes.
 func main() {
 	// Configure logger log level from environment variable
@@ -94,7 +100,7 @@ func main() {
 		logger.Fatal("Failed to listen on port 50051: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	pb.RegisterCrudPostServiceServer(grpcServer, &stylGrpc.CrudPostService{})
+	grpcServer = registerMediaDomainGrpc(grpcServer, logger)
 	logger.Info("Starting gRPC server on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
 		logger.Fatal("Failed to serve gRPC server: %v", err)

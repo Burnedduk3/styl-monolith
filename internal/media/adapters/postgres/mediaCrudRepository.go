@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"styl-monolith/internal/media/adapters/postgres/models"
 	"styl-monolith/internal/media/core/domain"
 	"styl-monolith/pkg/errorhandler"
 )
@@ -228,18 +229,21 @@ func (r *MediaCrudRepository) DeletePost(postId uint) error {
 }
 
 // ListPosts retrieves a paginated list of posts.
-func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, error) {
+func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, error) {
 	var posts []domain.Post
+	var totalCount int64
 	offset := (page - 1) * size
+	r.conn.Model(&models.Post{}).Count(&totalCount)
 	result := r.conn.Limit(size).Offset(offset).Find(&posts)
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
 	}
-	return posts, nil
+	return posts, totalPages, nil
 }
 
 // GetPost retrieves a single post by its ID.

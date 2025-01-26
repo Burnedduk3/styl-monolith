@@ -1,1 +1,4 @@
-package rest
+package models
+
+type Post struct {
+}

@@ -278,6 +278,7 @@ func (c CrudPostStruct) GetListReports(ech echo.Context) error {
 func (c CrudPostStruct) GetListImages(ech echo.Context) error {
 	pageParam := ech.QueryParam("page")
 	sizeParam := ech.QueryParam("size")
+	idParam := ech.QueryParam("id")
 
 	page, err := strconv.Atoi(pageParam)
 	if err != nil || page < 1 {
@@ -289,8 +290,14 @@ func (c CrudPostStruct) GetListImages(ech echo.Context) error {
 		size = 10
 	}
 
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil || size <= 1 {
+		c.logger.Error("Validation error: ", err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
+	}
+
 	// Assuming all images are paginated
-	images, err := c.mediaService.ListImages(0, page, size)
+	images, err := c.mediaService.ListImages(uint(id), page, size)
 	if err != nil {
 		c.logger.Error("Failed to list images: ", err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list images"})
