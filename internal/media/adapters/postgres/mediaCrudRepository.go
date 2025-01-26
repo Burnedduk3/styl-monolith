@@ -8,16 +8,6 @@ import (
 	"styl-monolith/pkg/errorhandler"
 )
 
-package rest
-
-import (
-"fmt"
-"github.com/sirupsen/logrus"
-"gorm.io/gorm"
-"styl-monolith/internal/media/core/domain"
-"styl-monolith/pkg/errorhandler"
-)
-
 type MediaCrudRepository struct {
 	log  *logrus.Logger
 	conn *gorm.DB
@@ -341,7 +331,7 @@ func (r *MediaCrudRepository) GetPostsByTag(tagId uint, page, size int) ([]domai
 
 // ReportPost adds a report to a post.
 func (r *MediaCrudRepository) ReportPost(postId uint, reason string, userId uint) error {
-	report := domain.PostReport{PostID: postId, Reason: reason, UserID: userId, Resolved: false}
+	report := domain.PostReport{PostId: postId, Reason: reason, UserId: userId, Resolved: false}
 	result := r.conn.Create(&report)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
@@ -430,7 +420,7 @@ func (r *MediaCrudRepository) TogglePostPrivacy(postId uint, isPublic bool) erro
 
 // CreateLike adds a new like to a post by a specific user.
 func (r *MediaCrudRepository) CreateLike(userId, postId uint) (domain.PostLike, error) {
-	like := domain.PostLike{UserID: userId, PostID: postId}
+	like := domain.PostLike{UserId: userId, PostId: postId}
 	result := r.conn.Create(&like)
 	if result.Error != nil {
 		return domain.PostLike{}, errorhandler.NewDomainError(
@@ -506,19 +496,6 @@ func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domai
 	return likes, nil
 }
 
-func (r *MediaCrudRepository) ReportPost(postId uint, userId uint, reason string) (domain.PostReport, error) {
-	report := domain.PostReport{PostID: postId, UserID: userId, Reason: reason, Resolved: false}
-	result := r.conn.Create(&report)
-	if result.Error != nil {
-		return domain.PostReport{}, errorhandler.NewDomainError(
-			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
-			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
-			result.Error,
-		)
-	}
-	return report, nil
-}
-
 // ResolveReport marks a specific report as resolved.
 func (r *MediaCrudRepository) ResolveReport(reportId uint) error {
 	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
@@ -539,7 +516,55 @@ func (r *MediaCrudRepository) ResolveReport(reportId uint) error {
 	return nil
 }
 
-// ListReports retrieves a paginated list of all reports in the system.
+// ListReportsForPost retrieves all reports for a specific post, paginated.
+func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([]domain.PostReport, error) {
+	var reports []domain.PostReport
+	offset := (page - 1) * size
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&reports)
+	if result.Error != nil {
+		return nil, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	return reports, nil
+}
+
+// CreateReport creates a new report for a specific post.
+func (r *MediaCrudRepository) CreateReport(report domain.PostReport) (domain.PostReport, error) {
+	result := r.conn.Create(&report)
+	if result.Error != nil {
+		return domain.PostReport{}, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	return report, nil
+}
+
+// DeleteReport deletes a report by its ID.
+func (r *MediaCrudRepository) DeleteReport(reportId uint) error {
+	result := r.conn.Delete(&domain.PostReport{}, reportId)
+	if result.Error != nil {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	if result.RowsAffected == 0 {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportNotFound,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrReportNotFound), reportId),
+			nil,
+		)
+	}
+	return nil
+}
+
+// ListReports retrieves a paginated list of all reports.
 func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, error) {
 	var reports []domain.PostReport
 	offset := (page - 1) * size
@@ -568,8 +593,28 @@ func (r *MediaCrudRepository) GetReport(reportId uint) (domain.PostReport, error
 	return report, nil
 }
 
-// ListReportsForPost retrieves all reports for a specific post, paginated.
-func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([]domain.PostReport, error) {
+// UpdateReport updates an existing report by its ID.
+func (r *MediaCrudRepository) UpdateReport(reportId uint, updatedReport domain.PostReport) (domain.PostReport, error) {
+	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Updates(updatedReport)
+	if result.Error != nil {
+		return domain.PostReport{}, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	if result.RowsAffected == 0 {
+		return domain.PostReport{}, errorhandler.NewDomainError(
+			errorhandler.ErrReportNotFound,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrReportNotFound), reportId),
+			nil,
+		)
+	}
+	return updatedReport, nil
+}
+
+// ListReportsByPost retrieves reports associated with a specific post, paginated.
+func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, error) {
 	var reports []domain.PostReport
 	offset := (page - 1) * size
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&reports)
@@ -583,3 +628,57 @@ func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([
 	return reports, nil
 }
 
+// ListReportsByUser retrieves reports created by a specific user, paginated.
+func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, error) {
+	var reports []domain.PostReport
+	offset := (page - 1) * size
+	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&reports)
+	if result.Error != nil {
+		return nil, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	return reports, nil
+}
+
+// GetPendingReports retrieves unresolved reports, paginated.
+func (r *MediaCrudRepository) GetPendingReports(page, size int) ([]domain.PostReport, error) {
+	var reports []domain.PostReport
+	offset := (page - 1) * size
+	result := r.conn.Where("resolved = ?", false).Limit(size).Offset(offset).Find(&reports)
+	if result.Error != nil {
+		return nil, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	return reports, nil
+}
+
+// ConfirmReport marks a report as resolved/accepted.
+func (r *MediaCrudRepository) ConfirmReport(reportId uint) error {
+	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
+	if result.Error != nil {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+	if result.RowsAffected == 0 {
+		return errorhandler.NewDomainError(
+			errorhandler.ErrReportNotFound,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrReportNotFound), reportId),
+			nil,
+		)
+	}
+	return nil
+}
+
+// RejectReport deletes a report, marking it as rejected.
+func (r *MediaCrudRepository) RejectReport(reportId uint) error {
+	return r.DeleteReport(reportId)
+}

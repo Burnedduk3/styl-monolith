@@ -50,6 +50,7 @@ type PostReport struct {
 	PostId    uint
 	Reason    string
 	Confirmed bool
+	Resolved  bool
 }
 
 type PostSaved struct {
