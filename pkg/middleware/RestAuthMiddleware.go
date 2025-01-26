@@ -39,7 +39,7 @@ func ValidateAccessTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc
 			}
 
 			// Verify the token's signature and decode it
-			claims, err := jwt.VerifyAccessJWT(token.AccessToken, signingKey)
+			claims, err := jwt.DecodeAndVerifyAccessJWT(token.AccessToken, token.IdTokenHash)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token signature or expired token")
 			}

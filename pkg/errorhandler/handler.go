@@ -37,13 +37,54 @@ func HandleError(c echo.Context, err error, logger *logrus.Logger) error {
 // It returns 400 for recognized bad request error codes or 500 for unrecognized error codes.
 func getHTTPStatusCode(errorCode string) int {
 	switch errorCode {
+	// Bad Request (400)
 	case ErrUserRequestPayloadBadRequestValidationError,
 		ErrUserRequestPayloadBadRequestEmptyFields,
 		ErrUserRequestPayloadBadRequestJsonBadlyFormated,
 		ErrRoleRequestPayloadBadRequestJsonBadlyFormated,
 		ErrRoleRequestPayloadBadRequestEmptyFields,
-		ErrRoleRequestPayloadBadRequestValidationError:
+		ErrRoleRequestPayloadBadRequestValidationError,
+		ErrReportRequestPayloadValidationFailed,
+		ErrReportRequestPayloadBadRequestJsonBadlyFormated,
+		ErrCommentRequestBodyInvalid:
 		return http.StatusBadRequest
+
+	// Not Found (404)
+	case ErrUserNotFound,
+		ErrRoleNotFound,
+		ErrImageNotFound,
+		ErrCommentNotFound,
+		ErrPostNotFound,
+		ErrLikeNotFound,
+		ErrReportNotFound,
+		ErrPostReportNotFound:
+		return http.StatusNotFound
+
+	// Unauthorized (403)
+	case ErrReportUnauthorizedDelete:
+		return http.StatusForbidden
+
+	// Internal Server Error (500)
+	case ErrUserDatabaseUnableToCompleteOperation,
+		ErrRoleDatabaseUnableToCompleteOperation,
+		ErrImageDatabaseUnableToCompleteOperation,
+		ErrCommentDatabaseUnableToCompleteOperation,
+		ErrPostDatabaseUnableToCompleteOperation,
+		ErrLikeDatabaseUnableToCompleteOperation,
+		ErrReportDatabaseUnableToCompleteOperation,
+		ErrPostReportDatabaseUnableToCompleteOperation,
+		ErrCreatingUserInCognitoUserPool,
+		ErrSettingPermanentPassword,
+		ErrDeletingUserFromCognitoUserPool,
+		ErrSaveTokenToDynamo,
+		ErrAuthInvalidToken,
+		ErrAuthInvalidTokenSignature,
+		ErrAuthErrorDecodingHeader,
+		ErrAuthErrorDecodingPayload,
+		ErrAuthErrorUnmarshalingClaims:
+		return http.StatusInternalServerError
+
+	// Default to Internal Server Error (500) for unknown codes
 	default:
 		return http.StatusInternalServerError
 	}

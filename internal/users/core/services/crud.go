@@ -220,36 +220,33 @@ func (c *CrudServiceStruct) PartialUpdateRoleById(id uint, role domain.Role) (do
 }
 
 func (c *CrudServiceStruct) PartialUpdateUserById(id uint, user domain.User) (domain.User, error) {
+	emptyUser := domain.User{}
+
 	oldUser, err := c.GetUserById(id)
-
 	if err != nil {
-		return domain.User{}, err
+		return emptyUser, err
 	}
 
-	if user.Name != "" {
-		oldUser.Name = user.Name
-	}
-	if user.Phone != "" {
-		oldUser.Phone = user.Phone
-	}
-	if user.Username != "" {
-		oldUser.Username = user.Username
-	}
-	if user.Email != "" {
-		oldUser.Email = user.Email
-	}
-	if user.Country != "" {
-		oldUser.Country = user.Country
-	}
-	if user.CountryCode != "" {
-		oldUser.CountryCode = user.CountryCode
+	// Extracted helper function for updating non-empty fields
+	updateFieldIfNotEmpty := func(target *string, source string) {
+		if source != "" {
+			*target = source
+		}
 	}
 
-	newRole, err := c.userCrudRepo.PartialUserUpdate(id, oldUser)
+	// Update fields
+	updateFieldIfNotEmpty(&oldUser.Name, user.Name)
+	updateFieldIfNotEmpty(&oldUser.Phone, user.Phone)
+	updateFieldIfNotEmpty(&oldUser.Username, user.Username)
+	updateFieldIfNotEmpty(&oldUser.Email, user.Email)
+	updateFieldIfNotEmpty(&oldUser.Country, user.Country)
+	updateFieldIfNotEmpty(&oldUser.CountryCode, user.CountryCode)
+
+	updatedUser, err := c.userCrudRepo.PartialUserUpdate(id, oldUser)
 	if err != nil {
-		return domain.User{}, err
+		return emptyUser, err
 	}
-	return newRole, nil
+	return updatedUser, nil
 }
 
 func (c *CrudServiceStruct) UpdateUserRole(userId, roleId uint) (domain.User, error) {

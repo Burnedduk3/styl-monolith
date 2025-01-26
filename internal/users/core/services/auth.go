@@ -89,7 +89,7 @@ func (l *LoginServiceStruct) Refresh(tokenId, email string) (domain.UserAuth, er
 		l.logger.Debug("Error fetching tokens from database with tokenId: ", tokenId)
 		return userAuth, err
 	}
-	jwtClaims, err := jwt.DecodeIdJWT(userAuth.IdToken)
+	jwtClaims, err := jwt.DecodeAndVerifyIdJWT(userAuth.IdToken, userAuth.IdTokenHash)
 	if err != nil {
 		l.logger.Error("Unable to decode JWT")
 		return userAuth, err
@@ -134,7 +134,7 @@ func (l *LoginServiceStruct) DeleteUserInCognito(email, tokenHash string) error 
 		l.logger.Debug("Error fetching User from database with email: ", email)
 		return err
 	}
-	DecodedToken, err := jwt.DecodeIdJWT(userAuth.IdToken)
+	DecodedToken, err := jwt.DecodeAndVerifyIdJWT(userAuth.IdToken, userAuth.IdTokenHash)
 	if err != nil {
 		l.logger.Debug("Error decoding token with id: ", userAuth.IdToken)
 		return err

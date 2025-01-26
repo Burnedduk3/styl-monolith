@@ -36,6 +36,23 @@ const (
 	ErrAuthErrorDecodingPayload    = "AUTH_003"
 	ErrAuthErrorUnmarshalingClaims = "AUTH_004"
 	ErrAuthInvalidTokenSignature   = "AUTH_005"
+
+	// Media domain errors
+	ErrImageDatabaseUnableToCompleteOperation = "IMAGE_001"
+	ErrImageNotFound                          = "IMAGE_002"
+
+	ErrCommentDatabaseUnableToCompleteOperation = "COMMENT_001"
+	ErrCommentNotFound                          = "COMMENT_002"
+	ErrCommentRequestBodyInvalid                = "COMMENT_003"
+
+	ErrPostDatabaseUnableToCompleteOperation = "POST_001"
+	ErrPostNotFound                          = "POST_002"
+
+	ErrLikeDatabaseUnableToCompleteOperation = "LIKE_001"
+	ErrLikeNotFound                          = "LIKE_002"
+
+	ErrPostReportDatabaseUnableToCompleteOperation = "POST_REPORT_001"
+	ErrPostReportNotFound                          = "POST_REPORT_002"
 )
 
 // errorMessages defines a mapping of error codes to their corresponding descriptive error messages.
@@ -61,11 +78,22 @@ var errorMessages = map[string]string{
 	ErrAuthErrorDecodingHeader:                         "Error decoding header: %v",
 	ErrAuthErrorDecodingPayload:                        "Error decoding payload: %v",
 	ErrAuthErrorUnmarshalingClaims:                     "Error unmarshaling claims: %v",
-	ErrReportDatabaseUnableToCompleteOperation:         "Unable to complete operation on specified report.",
-	ErrReportNotFound:                                  "Report not found with ID: %s",
 	ErrReportUnauthorizedDelete:                        "The report does not belong to the provided user.",
 	ErrReportRequestPayloadValidationFailed:            "Report request payload validation failed, missing or invalid fields.",
 	ErrReportRequestPayloadBadRequestJsonBadlyFormated: "Report request payload is invalid, JSON is badly formatted.",
+	ErrImageDatabaseUnableToCompleteOperation:          "Unable to complete operation on image database.",
+	ErrImageNotFound:                                   "Image not found with S3 key: %s",
+	ErrCommentDatabaseUnableToCompleteOperation:        "Unable to complete operation on comments database.",
+	ErrCommentNotFound:                                 "Comment not found with ID: %d",
+	ErrCommentRequestBodyInvalid:                       "Request payload is invalid, missing or invalid fields for comment.",
+	ErrPostDatabaseUnableToCompleteOperation:           "Unable to complete operation on the post database.",
+	ErrPostNotFound:                                    "Post not found with ID: %d",
+	ErrLikeDatabaseUnableToCompleteOperation:           "Unable to complete operation on like database.",
+	ErrLikeNotFound:                                    "Like not found with ID: %d",
+	ErrReportDatabaseUnableToCompleteOperation:         "Unable to complete operation on report database.",
+	ErrReportNotFound:                                  "Report not found with ID: %d",
+	ErrPostReportDatabaseUnableToCompleteOperation:     "Unable to complete operation on post report database.\n",
+	ErrPostReportNotFound:                              "Post Report not found with ID: %d\n",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.

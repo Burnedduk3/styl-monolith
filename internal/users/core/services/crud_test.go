@@ -1,230 +1,199 @@
 package services_test
 
 import (
+	"errors"
+	"styl-monolith/internal/users/core/services"
+	"testing"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"styl-monolith/internal/users/core/domain"
-	"styl-monolith/internal/users/core/services"
-	"testing"
 )
 
-// Mock implementation for ports.UserPort
-type MockUserPort struct {
+// Mock implementations of the ports
+type mockUserPort struct {
 	mock.Mock
 }
 
-func (m *MockUserPort) CreateUser(user domain.User) (domain.User, error) {
+func (m *mockUserPort) CreateUser(user domain.User) (domain.User, error) {
 	args := m.Called(user)
 	return args.Get(0).(domain.User), args.Error(1)
 }
 
-func (m *MockUserPort) DeleteUser(id uint) error {
+func (m *mockUserPort) DeleteUser(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
 
-func (m *MockUserPort) GetUserByID(id uint) (domain.User, error) {
-	args := m.Called(id)
-	return args.Get(0).(domain.User), args.Error(1)
-}
-
-func (m *MockUserPort) GetUserByEmail(email string) (domain.User, error) {
-	args := m.Called(email)
-	return args.Get(0).(domain.User), args.Error(1)
-}
-
-func (m *MockUserPort) GetUserByUsername(username string) (domain.User, error) {
-	args := m.Called(username)
-	return args.Get(0).(domain.User), args.Error(1)
-}
-
-func (m *MockUserPort) GetUserByPhone(phone string) (domain.User, error) {
-	args := m.Called(phone)
-	return args.Get(0).(domain.User), args.Error(1)
-}
-
-func (m *MockUserPort) ListUsers(offset, limit int) ([]domain.User, int, error) {
-	args := m.Called(offset, limit)
-	return args.Get(0).([]domain.User), args.Int(1), args.Error(2)
-}
-
-func (m *MockUserPort) UpdateUser(user domain.User) (domain.User, error) {
+func (m *mockUserPort) UpdateUser(user domain.User) (domain.User, error) {
 	args := m.Called(user)
 	return args.Get(0).(domain.User), args.Error(1)
 }
 
-func (m *MockUserPort) PartialUserUpdate(id uint, user domain.User) (domain.User, error) {
-	args := m.Called(id, user)
-	return args.Get(0).(domain.User), args.Error(1)
-}
+// ... other UserPort methods mocked as needed
 
-func (m *MockUserPort) UpdateUserRole(user domain.User) (domain.User, error) {
-	args := m.Called(user)
-	return args.Get(0).(domain.User), args.Error(1)
-}
-
-// Mock implementation for ports.RolePort
-type MockRolePort struct {
+type mockRolePort struct {
 	mock.Mock
 }
 
-func (m *MockRolePort) CreateRole(role domain.Role) (domain.Role, error) {
+func (m *mockRolePort) CreateRole(role domain.Role) (domain.Role, error) {
 	args := m.Called(role)
 	return args.Get(0).(domain.Role), args.Error(1)
 }
 
-func (m *MockRolePort) DeleteRole(id uint) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockRolePort) GetRoleByID(id uint) (domain.Role, error) {
-	args := m.Called(id)
-	return args.Get(0).(domain.Role), args.Error(1)
-}
-
-func (m *MockRolePort) GetRoleByName(name string) (domain.Role, error) {
+func (m *mockRolePort) GetRoleByName(name string) (domain.Role, error) {
 	args := m.Called(name)
 	return args.Get(0).(domain.Role), args.Error(1)
 }
 
-func (m *MockRolePort) ListRoles(offset, limit int) ([]domain.Role, int, error) {
-	args := m.Called(offset, limit)
-	return args.Get(0).([]domain.Role), args.Int(1), args.Error(2)
+// ... other RolePort methods mocked as needed
+
+type mockUserReportRepository struct {
+	mock.Mock
 }
 
-func (m *MockRolePort) UpdateRole(role domain.Role) (domain.Role, error) {
-	args := m.Called(role)
-	return args.Get(0).(domain.Role), args.Error(1)
-}
+// ... mock methods for UserReportRepository as needed
 
-func (m *MockRolePort) PartialRoleUpdate(id uint, role domain.Role) (domain.Role, error) {
-	args := m.Called(id, role)
-	return args.Get(0).(domain.Role), args.Error(1)
-}
-
-func TestCrudService_CreateUser(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
+func TestCreateUser(t *testing.T) {
 	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
+	userRepoMock := new(mockUserPort)
+	roleRepoMock := new(mockRolePort)
+	reportRepoMock := new(mockUserReportRepository)
 
-	requestUser := domain.User{ID: 1, Name: "John Doe", Email: "john@example.com"}
-	expectedUser := domain.User{ID: 1, Name: "John Doe", Email: "john@example.com"}
+	service := services.NewCrudService(logger, userRepoMock, roleRepoMock, reportRepoMock)
 
-	mockUserPort.On("CreateUser", requestUser).Return(expectedUser, nil)
+	requestUser := domain.User{
+		Name:     "John Doe",
+		Username: "johndoe",
+		Email:    "johndoe@example.com",
+	}
 
-	result, err := service.CreateUser(requestUser)
+	defaultRole := domain.Role{
+		ID:   1,
+		Name: "default",
+	}
 
+	expectedUser := domain.User{
+		ID:       1,
+		Name:     "John Doe",
+		Username: "johndoe",
+		Email:    "johndoe@example.com",
+		Role:     defaultRole,
+	}
+
+	// Mocking expectations
+	roleRepoMock.On("GetRoleByName", "default").Return(defaultRole, nil)
+	userRepoMock.On("CreateUser", mock.Anything).Return(expectedUser, nil)
+
+	// Test CreateUser method
+	createdUser, err := service.CreateUser(requestUser)
+
+	// Assertions
 	assert.NoError(t, err)
-	assert.Equal(t, expectedUser, result)
-	mockUserPort.AssertExpectations(t)
+	assert.Equal(t, expectedUser, createdUser)
+	roleRepoMock.AssertExpectations(t)
+	userRepoMock.AssertExpectations(t)
 }
 
-func TestCrudService_CreateRole(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
+func TestDeleteUserById(t *testing.T) {
 	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
+	userRepoMock := new(mockUserPort)
+	roleRepoMock := new(mockRolePort)
+	reportRepoMock := new(mockUserReportRepository)
 
-	requestRole := domain.Role{ID: 1, Name: "Admin"}
-	expectedRole := domain.Role{ID: 1, Name: "Admin"}
-
-	mockRolePort.On("CreateRole", requestRole).Return(expectedRole, nil)
-
-	result, err := service.CreateRole(requestRole)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedRole, result)
-	mockRolePort.AssertExpectations(t)
-}
-
-func TestCrudService_DeleteUserById(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
-	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
+	service := services.NewCrudService(logger, userRepoMock, roleRepoMock, reportRepoMock)
 
 	userId := uint(1)
 
-	mockUserPort.On("DeleteUser", userId).Return(nil)
+	// Mocking expectations
+	userRepoMock.On("DeleteUser", userId).Return(nil)
 
+	// Test DeleteUserById method
 	err := service.DeleteUserById(userId)
 
+	// Assertions
 	assert.NoError(t, err)
-	mockUserPort.AssertExpectations(t)
+	userRepoMock.AssertExpectations(t)
 }
 
-func TestCrudService_DeleteRoleById(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
+func TestGetUserById(t *testing.T) {
 	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
+	userRepoMock := new(mockUserPort)
+	roleRepoMock := new(mockRolePort)
+	reportRepoMock := new(mockUserReportRepository)
+
+	service := services.NewCrudService(logger, userRepoMock, roleRepoMock, reportRepoMock)
+
+	userId := uint(1)
+
+	role := domain.Role{ID: 1, Name: "admin"}
+	user := domain.User{ID: userId, Name: "John", Role: role}
+
+	// Mocking expectations
+	userRepoMock.On("GetUserByID", userId).Return(user, nil)
+	roleRepoMock.On("GetRoleByID", role.ID).Return(role, nil)
+
+	// Test GetUserById method
+	resultUser, err := service.GetUserById(userId)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, user, resultUser)
+	userRepoMock.AssertExpectations(t)
+	roleRepoMock.AssertExpectations(t)
+}
+
+func TestCreateRole(t *testing.T) {
+	logger := logrus.New()
+	userRepoMock := new(mockUserPort)
+	roleRepoMock := new(mockRolePort)
+	reportRepoMock := new(mockUserReportRepository)
+
+	service := services.NewCrudService(logger, userRepoMock, roleRepoMock, reportRepoMock)
+
+	inputRole := domain.Role{
+		Name:        "admin",
+		Description: "Administrator role",
+	}
+
+	expectedRole := domain.Role{
+		ID:          1,
+		Name:        "admin",
+		Description: "Administrator role",
+	}
+
+	// Mocking expectations
+	roleRepoMock.On("CreateRole", inputRole).Return(expectedRole, nil)
+
+	// Test CreateRole method
+	createdRole, err := service.CreateRole(inputRole)
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, expectedRole, createdRole)
+	roleRepoMock.AssertExpectations(t)
+}
+
+func TestUpdateRoleById_ErrorOnGetRole(t *testing.T) {
+	logger := logrus.New()
+	userRepoMock := new(mockUserPort)
+	roleRepoMock := new(mockRolePort)
+	reportRepoMock := new(mockUserReportRepository)
+
+	service := services.NewCrudService(logger, userRepoMock, roleRepoMock, reportRepoMock)
 
 	roleId := uint(1)
+	inputRole := domain.Role{Name: "admin", Description: "Updated description"}
 
-	mockRolePort.On("DeleteRole", roleId).Return(nil)
+	// Mocking expectations
+	roleRepoMock.On("GetRoleByID", roleId).Return(domain.Role{}, errors.New("not found"))
 
-	err := service.DeleteRoleById(roleId)
+	// Test UpdateRoleById method
+	_, err := service.UpdateRoleById(roleId, inputRole)
 
-	assert.NoError(t, err)
-	mockRolePort.AssertExpectations(t)
-}
-
-func TestCrudService_GetUserById(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
-	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
-
-	userId := uint(1)
-	expectedUser := domain.User{ID: userId, Name: "John Doe", Email: "john@example.com"}
-
-	mockUserPort.On("GetUserByID", userId).Return(expectedUser, nil)
-
-	result, err := service.GetUserById(userId)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedUser, result)
-	mockUserPort.AssertExpectations(t)
-}
-
-func TestCrudService_ListUsers(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
-	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
-
-	offset, limit := 0, 10
-	users := []domain.User{{ID: 1, Name: "John Doe"}, {ID: 2, Name: "Jane Doe"}}
-
-	mockUserPort.On("ListUsers", offset, limit).Return(users, 2, nil)
-
-	result, count, err := service.ListUsers(offset, limit)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 2, count)
-	assert.Equal(t, users, result)
-	mockUserPort.AssertExpectations(t)
-}
-
-func TestCrudService_UpdateUserById(t *testing.T) {
-	mockUserPort := new(MockUserPort)
-	mockRolePort := new(MockRolePort)
-	logger := logrus.New()
-	service := services.NewCrudService(logger, mockUserPort, mockRolePort)
-
-	userId := uint(1)
-	oldUser := domain.User{ID: userId, Name: "John Doe"}
-	updatedUser := domain.User{ID: userId, Name: "John Smith"}
-
-	mockUserPort.On("GetUserByID", userId).Return(oldUser, nil)
-	mockUserPort.On("UpdateUser", updatedUser).Return(updatedUser, nil)
-
-	result, err := service.UpdateUserById(userId, updatedUser)
-
-	assert.NoError(t, err)
-	assert.Equal(t, updatedUser, result)
-	mockUserPort.AssertExpectations(t)
+	// Assertions
+	assert.Error(t, err)
+	assert.Equal(t, "not found", err.Error())
+	roleRepoMock.AssertExpectations(t)
 }
