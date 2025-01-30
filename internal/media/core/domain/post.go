@@ -7,7 +7,7 @@ import (
 )
 
 type Post struct {
-	ID              uint
+	Id              uint
 	UserId          uint
 	ViewCount       int
 	CommentCount    int
@@ -28,6 +28,7 @@ type Post struct {
 	PostComments    []PostComment
 	PostLikes       []PostLike
 	PostReports     []PostReport
+	PostSave        []PostSaved
 }
 
 type PostLike struct {
@@ -85,7 +86,7 @@ type PostImage struct {
 
 func (p *Post) ToProtoDomain() *pb.Post {
 	return &pb.Post{
-		Id:              uint64(p.ID),
+		Id:              uint64(p.Id),
 		UserId:          uint64(p.UserId),
 		ViewCount:       uint32(p.ViewCount),
 		CommentCount:    uint32(p.CommentCount),

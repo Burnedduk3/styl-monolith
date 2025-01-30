@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -21,7 +22,9 @@ func NewMediaCrudRepository(log *logrus.Logger, conn *gorm.DB) *MediaCrudReposit
 
 // UploadImageToS3 adds a new image to the database and returns its S3 URL.
 func (r *MediaCrudRepository) UploadImageToS3(image domain.PostImage) (string, error) {
-	result := r.conn.Create(&image)
+	postgresPostImage := models.NewPostgresPostImageFromDomainPostImage(image)
+
+	result := r.conn.Create(&postgresPostImage)
 	if result.Error != nil {
 		err := errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
@@ -30,12 +33,12 @@ func (r *MediaCrudRepository) UploadImageToS3(image domain.PostImage) (string, e
 		)
 		return "", err
 	}
-	return image.S3Url, nil
+	return postgresPostImage.S3URL, nil
 }
 
 // DeleteImageFromS3 deletes an image record from the database by its S3 URL.
 func (r *MediaCrudRepository) DeleteImageFromS3(imageKey string) error {
-	result := r.conn.Where("s3_url = ?", imageKey).Delete(&domain.PostImage{})
+	result := r.conn.Where("s3_url = ?", imageKey).Delete(&models.PostImage{})
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
@@ -55,23 +58,33 @@ func (r *MediaCrudRepository) DeleteImageFromS3(imageKey string) error {
 
 // GetImageFromS3 retrieves an image from the database by its S3 URL.
 func (r *MediaCrudRepository) GetImageFromS3(imageKey string) (domain.PostImage, error) {
-	var image domain.PostImage
-	result := r.conn.Where("s3_url = ?", imageKey).First(&image)
+	var postgresPostImage models.PostImage
+	result := r.conn.Where("s3_url = ?", imageKey).First(&postgresPostImage)
+
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.PostImage{}, errorhandler.NewDomainError(
+				errorhandler.ErrImageNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrImageNotFound), imageKey),
+				nil,
+			)
+		}
 		return domain.PostImage{}, errorhandler.NewDomainError(
-			errorhandler.ErrImageNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrImageNotFound), imageKey),
+			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrImageDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
 	}
-	return image, nil
+
+	return postgresPostImage.ToPostImageDomain(), nil
 }
 
 // ListImagesFromS3 lists images associated with a given post, paginated.
 func (r *MediaCrudRepository) ListImagesFromS3(postId uint, page, size int) ([]domain.PostImage, error) {
-	var images []domain.PostImage
+	var postgresPostImages []models.PostImage
 	offset := (page - 1) * size
-	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&images)
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresPostImages)
+
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
@@ -79,13 +92,18 @@ func (r *MediaCrudRepository) ListImagesFromS3(postId uint, page, size int) ([]d
 			result.Error,
 		)
 	}
-	return images, nil
+
+	var postImages []domain.PostImage
+	for _, postgresPostImage := range postgresPostImages {
+		postImages = append(postImages, postgresPostImage.ToPostImageDomain())
+	}
+	return postImages, nil
 }
 
 // SetPostMainImage sets a specific image as the main image for a post.
 func (r *MediaCrudRepository) SetPostMainImage(postId, imageId uint) error {
-	// Reset main image for all images of the post
-	reset := r.conn.Model(&domain.PostImage{}).Where("post_id = ?", postId).Update("is_main", false)
+	// Reset the "is_main" flag for all images of the given post
+	reset := r.conn.Model(&models.PostImage{}).Where("post_id = ?", postId).Update("is_main", false)
 	if reset.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
@@ -94,8 +112,8 @@ func (r *MediaCrudRepository) SetPostMainImage(postId, imageId uint) error {
 		)
 	}
 
-	// Set the specified image as the main image
-	result := r.conn.Model(&domain.PostImage{}).Where("id = ? AND post_id = ?", imageId, postId).Update("is_main", true)
+	// Set the specified image as the main image for the post
+	result := r.conn.Model(&models.PostImage{}).Where("id = ? AND post_id = ?", imageId, postId).Update("is_main", true)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
@@ -103,6 +121,8 @@ func (r *MediaCrudRepository) SetPostMainImage(postId, imageId uint) error {
 			result.Error,
 		)
 	}
+
+	// Check if no rows were affected, indicating the image might not exist
 	if result.RowsAffected == 0 {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrImageNotFound,
@@ -115,43 +135,54 @@ func (r *MediaCrudRepository) SetPostMainImage(postId, imageId uint) error {
 
 // CreateComment adds a new comment to the database.
 func (r *MediaCrudRepository) CreateComment(comment domain.PostComment) (domain.PostComment, error) {
-	result := r.conn.Create(&comment)
+	postgresComment := models.NewPostgresPostCommentFromDomainPostComment(comment)
+	result := r.conn.Create(&postgresComment)
 	if result.Error != nil {
-		err := errorhandler.NewDomainError(
+		return domain.PostComment{}, errorhandler.NewDomainError(
 			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
-		return domain.PostComment{}, err
 	}
-	return comment, nil
+	return postgresComment.ToPostCommentDomain(), nil
 }
 
 // DeleteComment deletes a comment from the database by its ID.
 func (r *MediaCrudRepository) DeleteComment(commentId uint) error {
-	result := r.conn.Delete(&domain.PostComment{}, commentId)
+	var postgresComment models.PostComment
+	result := r.conn.First(&postgresComment, commentId)
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return errorhandler.NewDomainError(
+				errorhandler.ErrCommentNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
+				nil,
+			)
+		}
 		return errorhandler.NewDomainError(
 			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
 	}
-	if result.RowsAffected == 0 {
+
+	deleteResult := r.conn.Delete(&postgresComment)
+	if deleteResult.Error != nil {
 		return errorhandler.NewDomainError(
-			errorhandler.ErrCommentNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
-			nil,
+			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
+			deleteResult.Error,
 		)
 	}
+
 	return nil
 }
 
 // ListComments retrieves a paginated list of comments for a specific post.
 func (r *MediaCrudRepository) ListComments(postId uint, page, size int) ([]domain.PostComment, error) {
-	var comments []domain.PostComment
+	var postgresComments []models.PostComment
 	offset := (page - 1) * size
-	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&comments)
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresComments)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
@@ -159,45 +190,77 @@ func (r *MediaCrudRepository) ListComments(postId uint, page, size int) ([]domai
 			result.Error,
 		)
 	}
+
+	var comments []domain.PostComment
+	for _, postgresComment := range postgresComments {
+		comments = append(comments, postgresComment.ToPostCommentDomain())
+	}
 	return comments, nil
 }
 
 // GetCommentById retrieves a single comment by its ID.
 func (r *MediaCrudRepository) GetCommentById(commentId uint) (domain.PostComment, error) {
-	var comment domain.PostComment
-	result := r.conn.First(&comment, commentId)
+	var postgresComment models.PostComment
+	result := r.conn.First(&postgresComment, commentId)
 	if result.Error != nil {
-		return domain.PostComment{}, errorhandler.NewDomainError(
-			errorhandler.ErrCommentNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
-			result.Error,
-		)
-	}
-	return comment, nil
-}
-
-// UpdateComment updates an existing comment in the database.
-func (r *MediaCrudRepository) UpdateComment(commentId uint, updatedComment domain.PostComment) (domain.PostComment, error) {
-	result := r.conn.Model(&domain.PostComment{}).Where("id = ?", commentId).Updates(updatedComment)
-	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.PostComment{}, errorhandler.NewDomainError(
+				errorhandler.ErrCommentNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
+				nil,
+			)
+		}
 		return domain.PostComment{}, errorhandler.NewDomainError(
 			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
 	}
-	if result.RowsAffected == 0 {
-		return domain.PostComment{}, errorhandler.NewDomainError(
-			errorhandler.ErrCommentNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
-			nil,
-		)
-	}
-	return updatedComment, nil
+
+	return postgresComment.ToPostCommentDomain(), nil
 }
 
+// UpdateComment updates an existing comment in the database.
+func (r *MediaCrudRepository) UpdateComment(commentId uint, updatedComment domain.PostComment) (domain.PostComment, error) {
+	var postgresComment models.PostComment
+	result := r.conn.First(&postgresComment, commentId)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.PostComment{}, errorhandler.NewDomainError(
+				errorhandler.ErrCommentNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrCommentNotFound), commentId),
+				nil,
+			)
+		}
+		return domain.PostComment{}, errorhandler.NewDomainError(
+			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
+			result.Error,
+		)
+	}
+
+	postgresUpdatedComment := models.NewPostgresPostCommentFromDomainPostComment(updatedComment)
+	postgresComment.Comment = postgresUpdatedComment.Comment
+	postgresComment.IsDeleted = postgresUpdatedComment.IsDeleted
+	postgresComment.IsReported = postgresUpdatedComment.IsReported
+
+	updateResult := r.conn.Save(&postgresComment)
+	if updateResult.Error != nil {
+		return domain.PostComment{}, errorhandler.NewDomainError(
+			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
+			updateResult.Error,
+		)
+	}
+
+	return postgresComment.ToPostCommentDomain(), nil
+}
+
+// CreatePost adds a new post to the database and returns the created post.
 func (r *MediaCrudRepository) CreatePost(post domain.Post) (domain.Post, error) {
-	result := r.conn.Create(&post)
+	postgresPost := models.NewPostgresPostFromDomainPost(post)
+
+	result := r.conn.Create(&postgresPost)
 	if result.Error != nil {
 		return domain.Post{}, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -205,12 +268,13 @@ func (r *MediaCrudRepository) CreatePost(post domain.Post) (domain.Post, error) 
 			result.Error,
 		)
 	}
-	return post, nil
+
+	return postgresPost.ToPostDomain(), nil
 }
 
 // DeletePost deletes a post from the database by its ID.
 func (r *MediaCrudRepository) DeletePost(postId uint) error {
-	result := r.conn.Delete(&domain.Post{}, postId)
+	result := r.conn.Delete(&models.Post{}, postId)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -228,61 +292,109 @@ func (r *MediaCrudRepository) DeletePost(postId uint) error {
 	return nil
 }
 
-// ListPosts retrieves a paginated list of posts.
+// ListPosts retrieves a paginated list of posts along with the total number of pages.
 func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, error) {
-	var posts []domain.Post
+	var postgresPosts []models.Post
 	var totalCount int64
 	offset := (page - 1) * size
-	r.conn.Model(&models.Post{}).Count(&totalCount)
-	result := r.conn.Limit(size).Offset(offset).Find(&posts)
-	totalPages := int((totalCount + int64(size) - 1) / int64(size))
-	if result.Error != nil {
+
+	// Count total records
+	countResult := r.conn.Model(&models.Post{}).Count(&totalCount)
+	if countResult.Error != nil {
 		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
-			result.Error,
+			countResult.Error,
 		)
 	}
+
+	// Retrieve current page's records
+	queryResult := r.conn.Limit(size).Offset(offset).Find(&postgresPosts)
+	if queryResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			queryResult.Error,
+		)
+	}
+
+	// Convert Postgres models to domain models
+	var posts []domain.Post
+	for _, postgresPost := range postgresPosts {
+		posts = append(posts, postgresPost.ToPostDomain())
+	}
+
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
 	return posts, totalPages, nil
 }
 
 // GetPost retrieves a single post by its ID.
 func (r *MediaCrudRepository) GetPost(postId uint) (domain.Post, error) {
-	var post domain.Post
-	result := r.conn.First(&post, postId)
+	var postgresPost models.Post
+	result := r.conn.First(&postgresPost, postId)
 	if result.Error != nil {
-		return domain.Post{}, errorhandler.NewDomainError(
-			errorhandler.ErrPostNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrPostNotFound), postId),
-			result.Error,
-		)
-	}
-	return post, nil
-}
-
-// UpdatePost updates an existing post in the database.
-func (r *MediaCrudRepository) UpdatePost(postId uint, updatedPost domain.Post) (domain.Post, error) {
-	result := r.conn.Model(&domain.Post{}).Where("id = ?", postId).Updates(updatedPost)
-	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.Post{}, errorhandler.NewDomainError(
+				errorhandler.ErrPostNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrPostNotFound), postId),
+				nil,
+			)
+		}
 		return domain.Post{}, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
 	}
-	if result.RowsAffected == 0 {
+
+	return postgresPost.ToPostDomain(), nil
+}
+
+// UpdatePost updates an existing post in the database.
+func (r *MediaCrudRepository) UpdatePost(postId uint, updatedPost domain.Post) (domain.Post, error) {
+	// Retrieve the existing Post model
+	var postgresPost models.Post
+	result := r.conn.First(&postgresPost, postId)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return domain.Post{}, errorhandler.NewDomainError(
+				errorhandler.ErrPostNotFound,
+				fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrPostNotFound), postId),
+				nil,
+			)
+		}
 		return domain.Post{}, errorhandler.NewDomainError(
-			errorhandler.ErrPostNotFound,
-			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrPostNotFound), postId),
-			nil,
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			result.Error,
 		)
 	}
-	return updatedPost, nil
+
+	postgresPost.Caption = updatedPost.Caption       // Update caption
+	postgresPost.IsPublic = updatedPost.IsPublic     // Update visibility (public/private)
+	postgresPost.IsApproved = updatedPost.IsApproved // Update approval status
+	postgresPost.IsSpam = updatedPost.IsSpam         // Update spam marker
+	postgresPost.ViewCount = updatedPost.ViewCount   // Update view count, if manual adjustment is allowed
+
+	// Save the updated Post model back to the database
+	updateResult := r.conn.Save(&postgresPost)
+
+	if updateResult.Error != nil {
+		return domain.Post{}, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			updateResult.Error,
+		)
+	}
+
+	return postgresPost.ToPostDomain(), nil
 }
 
 // IncreasePostViewCount increments the view count for a post.
 func (r *MediaCrudRepository) IncreasePostViewCount(postId uint) error {
-	result := r.conn.Model(&domain.Post{}).Where("id = ?", postId).Update("view_count", gorm.Expr("view_count + ?", 1))
+	result := r.conn.Model(&models.Post{}).Where("id = ?", postId).Update("view_count", gorm.Expr("view_count + ?", 1))
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -302,9 +414,9 @@ func (r *MediaCrudRepository) IncreasePostViewCount(postId uint) error {
 
 // ListPostsByUser retrieves all posts created by a specific user, paginated.
 func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]domain.Post, error) {
-	var posts []domain.Post
+	var postgresPosts []models.Post
 	offset := (page - 1) * size
-	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&posts)
+	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&postgresPosts)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -312,17 +424,25 @@ func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]do
 			result.Error,
 		)
 	}
+
+	// Convert Postgres models to domain models
+	var posts []domain.Post
+	for _, postgresPost := range postgresPosts {
+		posts = append(posts, postgresPost.ToPostDomain())
+	}
+
 	return posts, nil
 }
 
 // GetPostsByTag retrieves all posts associated with a specific tag, paginated.
 func (r *MediaCrudRepository) GetPostsByTag(tagId uint, page, size int) ([]domain.Post, error) {
-	var posts []domain.Post
+	var postgresPosts []models.Post
 	offset := (page - 1) * size
 	result := r.conn.
 		Joins("JOIN post_tags ON post_tags.post_id = posts.id").
 		Where("post_tags.tag_id = ?", tagId).
-		Limit(size).Offset(offset).Find(&posts)
+		Limit(size).Offset(offset).Find(&postgresPosts)
+
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -330,13 +450,26 @@ func (r *MediaCrudRepository) GetPostsByTag(tagId uint, page, size int) ([]domai
 			result.Error,
 		)
 	}
+
+	// Convert Postgres models to domain models
+	var posts []domain.Post
+	for _, postgresPost := range postgresPosts {
+		posts = append(posts, postgresPost.ToPostDomain())
+	}
+
 	return posts, nil
 }
 
 // ReportPost adds a report to a post.
 func (r *MediaCrudRepository) ReportPost(postId uint, reason string, userId uint) error {
-	report := domain.PostReport{PostId: postId, Reason: reason, UserId: userId, Resolved: false}
-	result := r.conn.Create(&report)
+	postgresReport := models.NewPostgresPostReportFromDomainPostReport(domain.PostReport{
+		PostId:   postId,
+		Reason:   reason,
+		UserId:   userId,
+		Resolved: false,
+	})
+
+	result := r.conn.Create(&postgresReport)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -344,12 +477,13 @@ func (r *MediaCrudRepository) ReportPost(postId uint, reason string, userId uint
 			result.Error,
 		)
 	}
+
 	return nil
 }
 
 // MarkPostAsSpam sets a post's `is_spam` status to `true`.
 func (r *MediaCrudRepository) MarkPostAsSpam(postId uint) error {
-	result := r.conn.Model(&domain.Post{}).Where("id = ?", postId).Update("is_spam", true)
+	result := r.conn.Model(&models.Post{}).Where("id = ?", postId).Update("is_spam", true)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -369,7 +503,7 @@ func (r *MediaCrudRepository) MarkPostAsSpam(postId uint) error {
 
 // ApprovePost sets a post's `is_approved` status to `true`.
 func (r *MediaCrudRepository) ApprovePost(postId uint) error {
-	result := r.conn.Model(&domain.Post{}).Where("id = ?", postId).Update("is_approved", true)
+	result := r.conn.Model(&models.Post{}).Where("id = ?", postId).Update("is_approved", true)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -389,9 +523,9 @@ func (r *MediaCrudRepository) ApprovePost(postId uint) error {
 
 // ListFlaggedPosts retrieves all posts marked as spam or flagged, paginated.
 func (r *MediaCrudRepository) ListFlaggedPosts(page, size int) ([]domain.Post, error) {
-	var posts []domain.Post
+	var postgresPosts []models.Post
 	offset := (page - 1) * size
-	result := r.conn.Where("is_spam = ? OR is_flagged = ?", true, true).Limit(size).Offset(offset).Find(&posts)
+	result := r.conn.Where("is_spam = ? OR is_flagged = ?", true, true).Limit(size).Offset(offset).Find(&postgresPosts)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -399,12 +533,19 @@ func (r *MediaCrudRepository) ListFlaggedPosts(page, size int) ([]domain.Post, e
 			result.Error,
 		)
 	}
+
+	// Convert Postgres models to domain models
+	var posts []domain.Post
+	for _, postgresPost := range postgresPosts {
+		posts = append(posts, postgresPost.ToPostDomain())
+	}
+
 	return posts, nil
 }
 
 // TogglePostPrivacy updates the privacy of a post.
 func (r *MediaCrudRepository) TogglePostPrivacy(postId uint, isPublic bool) error {
-	result := r.conn.Model(&domain.Post{}).Where("id = ?", postId).Update("is_public", isPublic)
+	result := r.conn.Model(&models.Post{}).Where("id = ?", postId).Update("is_public", isPublic)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -424,8 +565,12 @@ func (r *MediaCrudRepository) TogglePostPrivacy(postId uint, isPublic bool) erro
 
 // CreateLike adds a new like to a post by a specific user.
 func (r *MediaCrudRepository) CreateLike(userId, postId uint) (domain.PostLike, error) {
-	like := domain.PostLike{UserId: userId, PostId: postId}
-	result := r.conn.Create(&like)
+	postgresLike := models.NewPostgresPostLikeFromDomainPostLike(domain.PostLike{
+		UserId: userId,
+		PostId: postId,
+	})
+
+	result := r.conn.Create(&postgresLike)
 	if result.Error != nil {
 		return domain.PostLike{}, errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
@@ -433,12 +578,14 @@ func (r *MediaCrudRepository) CreateLike(userId, postId uint) (domain.PostLike, 
 			result.Error,
 		)
 	}
-	return like, nil
+
+	// Convert back to a domain object
+	return postgresLike.ToPostLikeDomain(), nil
 }
 
 // DeleteLike removes a like from the database by its ID.
 func (r *MediaCrudRepository) DeleteLike(likeId uint) error {
-	result := r.conn.Delete(&domain.PostLike{}, likeId)
+	result := r.conn.Delete(&models.PostLike{}, likeId)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
@@ -458,9 +605,9 @@ func (r *MediaCrudRepository) DeleteLike(likeId uint) error {
 
 // ListLikes retrieves a paginated list of all likes in the system.
 func (r *MediaCrudRepository) ListLikes(page, size int) ([]domain.PostLike, error) {
-	var likes []domain.PostLike
+	var postgresLikes []models.PostLike
 	offset := (page - 1) * size
-	result := r.conn.Limit(size).Offset(offset).Find(&likes)
+	result := r.conn.Limit(size).Offset(offset).Find(&postgresLikes)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
@@ -468,13 +615,20 @@ func (r *MediaCrudRepository) ListLikes(page, size int) ([]domain.PostLike, erro
 			result.Error,
 		)
 	}
+
+	// Convert Postgres models to domain models
+	var likes []domain.PostLike
+	for _, postgresLike := range postgresLikes {
+		likes = append(likes, postgresLike.ToPostLikeDomain())
+	}
+
 	return likes, nil
 }
 
 // GetLike retrieves a single like by its ID.
 func (r *MediaCrudRepository) GetLike(likeId uint) (domain.PostLike, error) {
-	var like domain.PostLike
-	result := r.conn.First(&like, likeId)
+	var postgresLike models.PostLike
+	result := r.conn.First(&postgresLike, likeId)
 	if result.Error != nil {
 		return domain.PostLike{}, errorhandler.NewDomainError(
 			errorhandler.ErrLikeNotFound,
@@ -482,14 +636,16 @@ func (r *MediaCrudRepository) GetLike(likeId uint) (domain.PostLike, error) {
 			result.Error,
 		)
 	}
-	return like, nil
+
+	// Convert to a domain object
+	return postgresLike.ToPostLikeDomain(), nil
 }
 
 // GetPostLikes retrieves a list of likes for a specific post, paginated.
 func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domain.PostLike, error) {
-	var likes []domain.PostLike
+	var postgresLikes []models.PostLike
 	offset := (page - 1) * size
-	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&likes)
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresLikes)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
@@ -497,12 +653,19 @@ func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domai
 			result.Error,
 		)
 	}
+
+	// Convert Postgres likes to domain likes
+	var likes []domain.PostLike
+	for _, postgresLike := range postgresLikes {
+		likes = append(likes, postgresLike.ToPostLikeDomain())
+	}
+
 	return likes, nil
 }
 
 // ResolveReport marks a specific report as resolved.
 func (r *MediaCrudRepository) ResolveReport(reportId uint) error {
-	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
+	result := r.conn.Model(&models.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -522,9 +685,9 @@ func (r *MediaCrudRepository) ResolveReport(reportId uint) error {
 
 // ListReportsForPost retrieves all reports for a specific post, paginated.
 func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([]domain.PostReport, error) {
-	var reports []domain.PostReport
+	var postgresReports []models.PostReport
 	offset := (page - 1) * size
-	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&reports)
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -532,12 +695,21 @@ func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([
 			result.Error,
 		)
 	}
+
+	// Convert Postgres reports to domain reports
+	var reports []domain.PostReport
+	for _, postgresReport := range postgresReports {
+		reports = append(reports, postgresReport.ToPostReportDomain())
+	}
+
 	return reports, nil
 }
 
 // CreateReport creates a new report for a specific post.
 func (r *MediaCrudRepository) CreateReport(report domain.PostReport) (domain.PostReport, error) {
-	result := r.conn.Create(&report)
+	postgresReport := models.NewPostgresPostReportFromDomainPostReport(report)
+
+	result := r.conn.Create(&postgresReport)
 	if result.Error != nil {
 		return domain.PostReport{}, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -545,12 +717,14 @@ func (r *MediaCrudRepository) CreateReport(report domain.PostReport) (domain.Pos
 			result.Error,
 		)
 	}
-	return report, nil
+
+	// Convert back to a domain object
+	return postgresReport.ToPostReportDomain(), nil
 }
 
 // DeleteReport deletes a report by its ID.
 func (r *MediaCrudRepository) DeleteReport(reportId uint) error {
-	result := r.conn.Delete(&domain.PostReport{}, reportId)
+	result := r.conn.Delete(&models.PostReport{}, reportId)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -570,9 +744,9 @@ func (r *MediaCrudRepository) DeleteReport(reportId uint) error {
 
 // ListReports retrieves a paginated list of all reports.
 func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, error) {
-	var reports []domain.PostReport
+	var postgresReports []models.PostReport
 	offset := (page - 1) * size
-	result := r.conn.Limit(size).Offset(offset).Find(&reports)
+	result := r.conn.Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -580,13 +754,20 @@ func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, 
 			result.Error,
 		)
 	}
+
+	// Convert Postgres reports to domain reports
+	var reports []domain.PostReport
+	for _, postgresReport := range postgresReports {
+		reports = append(reports, postgresReport.ToPostReportDomain())
+	}
+
 	return reports, nil
 }
 
 // GetReport retrieves a single report by its ID.
 func (r *MediaCrudRepository) GetReport(reportId uint) (domain.PostReport, error) {
-	var report domain.PostReport
-	result := r.conn.First(&report, reportId)
+	var postgresReport models.PostReport
+	result := r.conn.First(&postgresReport, reportId)
 	if result.Error != nil {
 		return domain.PostReport{}, errorhandler.NewDomainError(
 			errorhandler.ErrReportNotFound,
@@ -594,12 +775,16 @@ func (r *MediaCrudRepository) GetReport(reportId uint) (domain.PostReport, error
 			result.Error,
 		)
 	}
-	return report, nil
+
+	// Convert to domain object
+	return postgresReport.ToPostReportDomain(), nil
 }
 
 // UpdateReport updates an existing report by its ID.
 func (r *MediaCrudRepository) UpdateReport(reportId uint, updatedReport domain.PostReport) (domain.PostReport, error) {
-	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Updates(updatedReport)
+	postgresReport := models.NewPostgresPostReportFromDomainPostReport(updatedReport)
+
+	result := r.conn.Model(&models.PostReport{}).Where("id = ?", reportId).Updates(postgresReport)
 	if result.Error != nil {
 		return domain.PostReport{}, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -607,6 +792,7 @@ func (r *MediaCrudRepository) UpdateReport(reportId uint, updatedReport domain.P
 			result.Error,
 		)
 	}
+
 	if result.RowsAffected == 0 {
 		return domain.PostReport{}, errorhandler.NewDomainError(
 			errorhandler.ErrReportNotFound,
@@ -614,14 +800,15 @@ func (r *MediaCrudRepository) UpdateReport(reportId uint, updatedReport domain.P
 			nil,
 		)
 	}
-	return updatedReport, nil
+
+	return postgresReport.ToPostReportDomain(), nil
 }
 
 // ListReportsByPost retrieves reports associated with a specific post, paginated.
 func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, error) {
-	var reports []domain.PostReport
+	var postgresReports []models.PostReport
 	offset := (page - 1) * size
-	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&reports)
+	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -629,14 +816,21 @@ func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]
 			result.Error,
 		)
 	}
+
+	// Convert Postgres reports to domain reports
+	var reports []domain.PostReport
+	for _, postgresReport := range postgresReports {
+		reports = append(reports, postgresReport.ToPostReportDomain())
+	}
+
 	return reports, nil
 }
 
 // ListReportsByUser retrieves reports created by a specific user, paginated.
 func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, error) {
-	var reports []domain.PostReport
+	var postgresReports []models.PostReport
 	offset := (page - 1) * size
-	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&reports)
+	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -644,14 +838,21 @@ func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]
 			result.Error,
 		)
 	}
+
+	// Convert Postgres reports to domain reports
+	var reports []domain.PostReport
+	for _, postgresReport := range postgresReports {
+		reports = append(reports, postgresReport.ToPostReportDomain())
+	}
+
 	return reports, nil
 }
 
 // GetPendingReports retrieves unresolved reports, paginated.
 func (r *MediaCrudRepository) GetPendingReports(page, size int) ([]domain.PostReport, error) {
-	var reports []domain.PostReport
+	var postgresReports []models.PostReport
 	offset := (page - 1) * size
-	result := r.conn.Where("resolved = ?", false).Limit(size).Offset(offset).Find(&reports)
+	result := r.conn.Where("resolved = ?", false).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
 		return nil, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
@@ -659,12 +860,19 @@ func (r *MediaCrudRepository) GetPendingReports(page, size int) ([]domain.PostRe
 			result.Error,
 		)
 	}
+
+	// Convert Postgres reports to domain reports
+	var reports []domain.PostReport
+	for _, postgresReport := range postgresReports {
+		reports = append(reports, postgresReport.ToPostReportDomain())
+	}
+
 	return reports, nil
 }
 
 // ConfirmReport marks a report as resolved/accepted.
 func (r *MediaCrudRepository) ConfirmReport(reportId uint) error {
-	result := r.conn.Model(&domain.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
+	result := r.conn.Model(&models.PostReport{}).Where("id = ?", reportId).Update("resolved", true)
 	if result.Error != nil {
 		return errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,

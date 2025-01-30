@@ -21,7 +21,7 @@ func NewCrudPostGrcp(mediaService services.MediaService) *CrudPostGrcp {
 func (s *CrudPostGrcp) ListPosts(ctx context.Context, req *pb.PaginationRequest) (*pb.PaginationResponsePost, error) {
 	log.Printf("Received CreatePost request: %v", req.Page)
 	log.Printf("Received CreatePost request: %v", req.Size)
-	posts, err := s.mediaService.ListPosts(int(req.Page), int(req.Size))
+	posts, currentPage, err := s.mediaService.ListPosts(int(req.Page), int(req.Size))
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,8 @@ func (s *CrudPostGrcp) ListPosts(ctx context.Context, req *pb.PaginationRequest)
 	}
 
 	return &pb.PaginationResponsePost{
-		Post: postsResponse,
+		CurrentPage: uint64(currentPage),
+		Post:        postsResponse,
 	}, nil
 }
 

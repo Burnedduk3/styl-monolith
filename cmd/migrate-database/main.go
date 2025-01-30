@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	mediaModel "styl-monolith/internal/media/adapters/postgres/models"
 	"styl-monolith/internal/users/adapters/postgres/models"
 	log "styl-monolith/pkg/logger"
 	"styl-monolith/pkg/postgres"
@@ -41,12 +42,12 @@ func main() {
 
 	databaseClient := postgres.GetDatabaseInstance(logger)
 	db := databaseClient.GetDB()
-	// Perform database migration
+
+	// Perform database migrations for User, Role, and Report models
 	err = db.AutoMigrate(&models.User{})
 	if err != nil {
 		logger.Fatal(err)
 	}
-	// Perform database migration
 	err = db.AutoMigrate(&models.Role{})
 	if err != nil {
 		logger.Fatal(err)
@@ -56,4 +57,31 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	// Perform database migrations for Post-related models
+	err = db.AutoMigrate(&mediaModel.Post{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = db.AutoMigrate(&mediaModel.PostLike{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = db.AutoMigrate(&mediaModel.PostComment{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = db.AutoMigrate(&mediaModel.PostReport{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = db.AutoMigrate(&mediaModel.PostSaved{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = db.AutoMigrate(&mediaModel.PostImage{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	logger.Info("Database migration completed successfully.")
 }
