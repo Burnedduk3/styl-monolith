@@ -27,7 +27,7 @@ func GetDynamoClientInstance(logs *logrus.Logger, region string) *DynamoClient {
 			config.WithRegion(region),
 		)
 		if err != nil {
-			logs.Fatalf(fmt.Sprintf("failed to load AWS configuration: %v", err))
+			logs.Fatalf(fmt.Sprintf("failed to load AWS configuration: %s", err))
 		}
 
 		/* Create DynamoDB client */

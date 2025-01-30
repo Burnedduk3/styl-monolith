@@ -67,7 +67,7 @@ func NewPostResponseFromDomain(post domain.Post) PostResponse {
 	}
 
 	return PostResponse{
-		Id:           post.ID,
+		Id:           post.Id,
 		UserId:       post.UserId,
 		Caption:      post.Caption,
 		ViewCount:    post.ViewCount,

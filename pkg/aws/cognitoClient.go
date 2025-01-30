@@ -30,7 +30,7 @@ func GetCognitoClientInstance(logs *logrus.Logger, region string) *CognitoClient
 			config.WithRegion(region), // Sets the region dynamically
 		)
 		if err != nil {
-			logs.Fatalf(fmt.Sprintf("failed to load AWS configuration: %v", err))
+			logs.Fatalf(fmt.Sprintf("failed to load AWS configuration: %s", err))
 		}
 
 		// Create Cognito Identity Provider client
