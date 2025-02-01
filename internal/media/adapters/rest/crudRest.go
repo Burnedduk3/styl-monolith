@@ -10,20 +10,20 @@ import (
 )
 
 type CrudPostHandler interface {
-	PostCreatePost(ech echo.Context) error
-	PostCreateComment(ech echo.Context) error
-	PostCreateReport(ech echo.Context) error
-	PostUploadPostImages(ech echo.Context) error
+	CreatePost(ech echo.Context) error
+	CreateComment(ech echo.Context) error
+	CreateReport(ech echo.Context) error
+	UploadPostImages(ech echo.Context) error
 	GetPostById(ech echo.Context, id string) error
-	GetPostImagesById(ech echo.Context, id string) error
+	PostImagesById(ech echo.Context, id string) error
 	DeletePost(ech echo.Context, id string) error
 	DeleteComment(ech echo.Context, id string) error
 	DeleteReport(ech echo.Context, id string) error
 	DeleteImage(ech echo.Context, id string) error
 	UpdatePost(ech echo.Context, id string) error
 	UpdateComment(ech echo.Context, id string) error
-	GetListReports(ech echo.Context) error
-	GetListImages(ech echo.Context) error
+	ListReports(ech echo.Context) error
+	ListImages(ech echo.Context) error
 }
 
 type CrudPostStruct struct {
@@ -38,7 +38,7 @@ func NewCrudPostHandler(logger *logrus.Logger, mediaService services.MediaServic
 	}
 }
 
-func (c CrudPostStruct) PostCreatePost(ech echo.Context) error {
+func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 	var payload models.PostPayload
 	if err := ech.Bind(&payload); err != nil {
 		c.logger.Error("Failed to bind PostPayload: ", err)
@@ -58,7 +58,7 @@ func (c CrudPostStruct) PostCreatePost(ech echo.Context) error {
 	return ech.JSON(http.StatusCreated, models.NewPostResponseFromDomain(post))
 }
 
-func (c CrudPostStruct) PostCreateComment(ech echo.Context) error {
+func (c CrudPostStruct) CreateComment(ech echo.Context) error {
 	var payload models.CommentPayload
 	if err := ech.Bind(&payload); err != nil {
 		c.logger.Error("Failed to bind CommentPayload: ", err)
@@ -78,7 +78,7 @@ func (c CrudPostStruct) PostCreateComment(ech echo.Context) error {
 	return ech.JSON(http.StatusCreated, models.NewCommentResponseFromDomain(comment))
 }
 
-func (c CrudPostStruct) PostCreateReport(ech echo.Context) error {
+func (c CrudPostStruct) CreateReport(ech echo.Context) error {
 	var payload models.ReportPayload
 	if err := ech.Bind(&payload); err != nil {
 		c.logger.Error("Failed to bind ReportPayload: ", err)
@@ -98,7 +98,7 @@ func (c CrudPostStruct) PostCreateReport(ech echo.Context) error {
 	return ech.JSON(http.StatusCreated, models.NewReportResponseFromDomainReport(report))
 }
 
-func (c CrudPostStruct) PostUploadPostImages(ech echo.Context) error {
+func (c CrudPostStruct) UploadPostImages(ech echo.Context) error {
 	var payload models.ImagePayload
 	if err := ech.Bind(&payload); err != nil {
 		c.logger.Error("Failed to bind ImagePayload: ", err)
@@ -145,7 +145,7 @@ func (c CrudPostStruct) DeletePost(ech echo.Context, id string) error {
 	return ech.JSON(http.StatusNoContent, nil)
 }
 
-func (c CrudPostStruct) GetPostImagesById(ech echo.Context, id string) error {
+func (c CrudPostStruct) PostImagesById(ech echo.Context, id string) error {
 	postId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		c.logger.Error("Invalid post ID: ", err)
@@ -251,7 +251,7 @@ func (c CrudPostStruct) UpdateComment(ech echo.Context, id string) error {
 	return ech.JSON(http.StatusOK, models.NewCommentResponseFromDomain(updatedComment))
 }
 
-func (c CrudPostStruct) GetListReports(ech echo.Context) error {
+func (c CrudPostStruct) ListReports(ech echo.Context) error {
 	pageParam := ech.QueryParam("page")
 	sizeParam := ech.QueryParam("size")
 
@@ -275,7 +275,7 @@ func (c CrudPostStruct) GetListReports(ech echo.Context) error {
 	return ech.JSON(http.StatusOK, response)
 }
 
-func (c CrudPostStruct) GetListImages(ech echo.Context) error {
+func (c CrudPostStruct) ListImages(ech echo.Context) error {
 	pageParam := ech.QueryParam("page")
 	sizeParam := ech.QueryParam("size")
 	idParam := ech.QueryParam("id")

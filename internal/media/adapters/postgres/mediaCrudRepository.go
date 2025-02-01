@@ -321,7 +321,8 @@ func (r *MediaCrudRepository) DeletePost(postId uint) error {
 	return nil
 }
 
-// ListPosts retrieves a paginated list of posts along with the total number of pages.
+// ListPosts retrieves a paginated list of posts along with the total number of pages,
+// including PostImages relation and counts for likes and comments for each post.
 func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, error) {
 	var postgresPosts []models.Post
 	var totalCount int64
@@ -337,8 +338,8 @@ func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, err
 		)
 	}
 
-	// Retrieve current page's records
-	queryResult := r.conn.Limit(size).Offset(offset).Find(&postgresPosts)
+	// Retrieve current page's records with PostImages relation
+	queryResult := r.conn.Preload("PostImages").Limit(size).Offset(offset).Find(&postgresPosts)
 	if queryResult.Error != nil {
 		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
@@ -347,10 +348,23 @@ func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, err
 		)
 	}
 
-	// Convert Postgres models to domain models
+	// Convert Postgres models to domain models and fetch counts
 	var posts []domain.Post
 	for _, postgresPost := range postgresPosts {
-		posts = append(posts, postgresPost.ToPostDomain())
+		// Count comments for the current post
+		var commentCount int64
+		r.conn.Model(&models.PostComment{}).Where("post_id = ?", postgresPost.ID).Count(&commentCount)
+
+		// Count likes for the current post
+		var likeCount int64
+		r.conn.Model(&models.PostLike{}).Where("post_id = ?", postgresPost.ID).Count(&likeCount)
+
+		// Convert the Post model to the domain model and set counts
+		domainPost := postgresPost.ToPostDomain()
+		domainPost.CommentCount = int(commentCount)
+		domainPost.LikeCount = int(likeCount)
+
+		posts = append(posts, domainPost)
 	}
 
 	// Calculate total number of pages
