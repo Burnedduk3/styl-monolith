@@ -7,4 +7,5 @@ const (
 	CreateUserOnDB                 = "Starting to create user %s on database"
 	DeletingUserWithEmail          = "Deleting user with the the following email: %s"
 	SuccessfullyDeletedCognitoUser = "Successfully deleted cognito user with email: %s"
+	CreatingNewComment             = "Creating a new comment"
 )

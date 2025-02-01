@@ -359,10 +359,14 @@ func (r *MediaCrudRepository) ListPosts(page, size int) ([]domain.Post, int, err
 	return posts, totalPages, nil
 }
 
-// GetPost retrieves a single post by its ID.
+// GetPost retrieves a single post by its ID, includes its PostImages relation,
+// and gets the total count of comments and likes.
 func (r *MediaCrudRepository) GetPost(postId uint) (domain.Post, error) {
 	var postgresPost models.Post
-	result := r.conn.First(&postgresPost, postId)
+	var commentCount int64
+	var likeCount int64
+
+	result := r.conn.Preload("PostImages").First(&postgresPost, postId)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return domain.Post{}, errorhandler.NewDomainError(
@@ -378,7 +382,15 @@ func (r *MediaCrudRepository) GetPost(postId uint) (domain.Post, error) {
 		)
 	}
 
-	return postgresPost.ToPostDomain(), nil
+	r.conn.Model(&models.PostComment{}).Where("post_id = ?", postId).Count(&commentCount)
+
+	r.conn.Model(&models.PostLike{}).Where("post_id = ?", postId).Count(&likeCount)
+
+	domainPost := postgresPost.ToPostDomain()
+	domainPost.CommentCount = int(commentCount)
+	domainPost.LikeCount = int(likeCount)
+
+	return domainPost, nil
 }
 
 // UpdatePost updates an existing post in the database.

@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"styl-monolith/internal/media/core/domain"
 	"styl-monolith/internal/media/core/ports"
+	"styl-monolith/pkg/logger"
 )
 
 type MediaService interface {
@@ -188,7 +189,13 @@ func (s *MediaServiceStruct) ListPostsByUser(userId uint, page, size int) ([]dom
 
 // Comment Operations
 func (s *MediaServiceStruct) CreateComment(comment domain.PostComment) (domain.PostComment, error) {
-	s.logger.Info("Creating a new comment")
+	s.logger.Info(logger.CreatingNewComment)
+	post, err := s.GetPost(comment.PostId)
+	if err != nil {
+		s.logger.Errorf(logger.PostNotFound, comment.PostId)
+		return domain.PostComment{}, err
+	}
+	comment.PostId = post.Id
 	return s.commentPort.CreateComment(comment)
 }
 
