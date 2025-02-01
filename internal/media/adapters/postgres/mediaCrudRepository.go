@@ -80,13 +80,25 @@ func (r *MediaCrudRepository) GetImageFromS3(imageKey string) (domain.PostImage,
 }
 
 // ListImagesFromS3 lists images associated with a given post, paginated.
-func (r *MediaCrudRepository) ListImagesFromS3(postId uint, page, size int) ([]domain.PostImage, error) {
+func (r *MediaCrudRepository) ListImagesFromS3(postId uint, page, size int) ([]domain.PostImage, int, error) {
 	var postgresPostImages []models.PostImage
+	var totalCount int64
+
+	countResult := r.conn.Model(&models.Post{}).Count(&totalCount)
+
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
 	offset := (page - 1) * size
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresPostImages)
 
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrImageDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -97,7 +109,9 @@ func (r *MediaCrudRepository) ListImagesFromS3(postId uint, page, size int) ([]d
 	for _, postgresPostImage := range postgresPostImages {
 		postImages = append(postImages, postgresPostImage.ToPostImageDomain())
 	}
-	return postImages, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+	return postImages, totalPages, nil
 }
 
 // SetPostMainImage sets a specific image as the main image for a post.
@@ -179,12 +193,24 @@ func (r *MediaCrudRepository) DeleteComment(commentId uint) error {
 }
 
 // ListComments retrieves a paginated list of comments for a specific post.
-func (r *MediaCrudRepository) ListComments(postId uint, page, size int) ([]domain.PostComment, error) {
+func (r *MediaCrudRepository) ListComments(postId uint, page, size int) ([]domain.PostComment, int, error) {
 	var postgresComments []models.PostComment
+	var totalCount int64
 	offset := (page - 1) * size
+
+	countResult := r.conn.Model(&models.Post{}).Count(&totalCount)
+
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresComments)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrCommentDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrCommentDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -195,7 +221,10 @@ func (r *MediaCrudRepository) ListComments(postId uint, page, size int) ([]domai
 	for _, postgresComment := range postgresComments {
 		comments = append(comments, postgresComment.ToPostCommentDomain())
 	}
-	return comments, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return comments, totalPages, nil
 }
 
 // GetCommentById retrieves a single comment by its ID.
@@ -413,12 +442,25 @@ func (r *MediaCrudRepository) IncreasePostViewCount(postId uint) error {
 }
 
 // ListPostsByUser retrieves all posts created by a specific user, paginated.
-func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]domain.Post, error) {
+func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]domain.Post, int, error) {
 	var postgresPosts []models.Post
+	var totalCount int64
+
+	// Count the total number of posts by userId
+	countResult := r.conn.Model(&models.Post{}).Where("user_id = ?", userId).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&postgresPosts)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -431,7 +473,10 @@ func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]do
 		posts = append(posts, postgresPost.ToPostDomain())
 	}
 
-	return posts, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return posts, totalPages, nil
 }
 
 // GetPostsByTag retrieves all posts associated with a specific tag, paginated.
@@ -522,12 +567,25 @@ func (r *MediaCrudRepository) ApprovePost(postId uint) error {
 }
 
 // ListFlaggedPosts retrieves all posts marked as spam or flagged, paginated.
-func (r *MediaCrudRepository) ListFlaggedPosts(page, size int) ([]domain.Post, error) {
+func (r *MediaCrudRepository) ListFlaggedPosts(page, size int) ([]domain.Post, int, error) {
 	var postgresPosts []models.Post
+	var totalCount int64
+
+	// Count the total number of flagged or spam posts
+	countResult := r.conn.Model(&models.Post{}).Where("is_spam = ? OR is_flagged = ?", true, true).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("is_spam = ? OR is_flagged = ?", true, true).Limit(size).Offset(offset).Find(&postgresPosts)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -540,7 +598,10 @@ func (r *MediaCrudRepository) ListFlaggedPosts(page, size int) ([]domain.Post, e
 		posts = append(posts, postgresPost.ToPostDomain())
 	}
 
-	return posts, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return posts, totalPages, nil
 }
 
 // TogglePostPrivacy updates the privacy of a post.
@@ -604,12 +665,25 @@ func (r *MediaCrudRepository) DeleteLike(likeId uint) error {
 }
 
 // ListLikes retrieves a paginated list of all likes in the system.
-func (r *MediaCrudRepository) ListLikes(page, size int) ([]domain.PostLike, error) {
+func (r *MediaCrudRepository) ListLikes(page, size int) ([]domain.PostLike, int, error) {
 	var postgresLikes []models.PostLike
+	var totalCount int64
+
+	// Count the total number of likes
+	countResult := r.conn.Model(&models.PostLike{}).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrLikeDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Limit(size).Offset(offset).Find(&postgresLikes)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrLikeDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -622,7 +696,10 @@ func (r *MediaCrudRepository) ListLikes(page, size int) ([]domain.PostLike, erro
 		likes = append(likes, postgresLike.ToPostLikeDomain())
 	}
 
-	return likes, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return likes, totalPages, nil
 }
 
 // GetLike retrieves a single like by its ID.
@@ -642,12 +719,25 @@ func (r *MediaCrudRepository) GetLike(likeId uint) (domain.PostLike, error) {
 }
 
 // GetPostLikes retrieves a list of likes for a specific post, paginated.
-func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domain.PostLike, error) {
+func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domain.PostLike, int, error) {
 	var postgresLikes []models.PostLike
+	var totalCount int64
+
+	// Count the total number of likes for the specific post
+	countResult := r.conn.Model(&models.PostLike{}).Where("post_id = ?", postId).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrLikeDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresLikes)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrLikeDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrLikeDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -660,7 +750,10 @@ func (r *MediaCrudRepository) GetPostLikes(postId uint, page, size int) ([]domai
 		likes = append(likes, postgresLike.ToPostLikeDomain())
 	}
 
-	return likes, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return likes, totalPages, nil
 }
 
 // ResolveReport marks a specific report as resolved.
@@ -684,12 +777,25 @@ func (r *MediaCrudRepository) ResolveReport(reportId uint) error {
 }
 
 // ListReportsForPost retrieves all reports for a specific post, paginated.
-func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([]domain.PostReport, error) {
+func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([]domain.PostReport, int, error) {
 	var postgresReports []models.PostReport
+	var totalCount int64
+
+	// Count the total number of reports for the given postId
+	countResult := r.conn.Model(&models.PostReport{}).Where("post_id = ?", postId).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -702,7 +808,10 @@ func (r *MediaCrudRepository) ListReportsForPost(postId uint, page, size int) ([
 		reports = append(reports, postgresReport.ToPostReportDomain())
 	}
 
-	return reports, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return reports, totalPages, nil
 }
 
 // CreateReport creates a new report for a specific post.
@@ -743,12 +852,25 @@ func (r *MediaCrudRepository) DeleteReport(reportId uint) error {
 }
 
 // ListReports retrieves a paginated list of all reports.
-func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, error) {
+func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, int, error) {
 	var postgresReports []models.PostReport
+	var totalCount int64
+
+	// Count the total number of reports
+	countResult := r.conn.Model(&models.PostReport{}).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -761,7 +883,10 @@ func (r *MediaCrudRepository) ListReports(page, size int) ([]domain.PostReport, 
 		reports = append(reports, postgresReport.ToPostReportDomain())
 	}
 
-	return reports, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return reports, totalPages, nil
 }
 
 // GetReport retrieves a single report by its ID.
@@ -805,12 +930,25 @@ func (r *MediaCrudRepository) UpdateReport(reportId uint, updatedReport domain.P
 }
 
 // ListReportsByPost retrieves reports associated with a specific post, paginated.
-func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, error) {
+func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, int, error) {
 	var postgresReports []models.PostReport
+	var totalCount int64
+
+	// Count the total number of reports for the specific post
+	countResult := r.conn.Model(&models.PostReport{}).Where("post_id = ?", postId).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("post_id = ?", postId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -823,16 +961,32 @@ func (r *MediaCrudRepository) ListReportsByPost(postId uint, page, size int) ([]
 		reports = append(reports, postgresReport.ToPostReportDomain())
 	}
 
-	return reports, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return reports, totalPages, nil
 }
 
 // ListReportsByUser retrieves reports created by a specific user, paginated.
-func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, error) {
+func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, int, error) {
 	var postgresReports []models.PostReport
+	var totalCount int64
+
+	// Count the total number of reports created by the specific user
+	countResult := r.conn.Model(&models.PostReport{}).Where("user_id = ?", userId).Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, 0, errorhandler.NewDomainError(
+			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
+			countResult.Error,
+		)
+	}
+
+	// Paginate the query
 	offset := (page - 1) * size
 	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&postgresReports)
 	if result.Error != nil {
-		return nil, errorhandler.NewDomainError(
+		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrReportDatabaseUnableToCompleteOperation,
 			errorhandler.GetErrorMessage(errorhandler.ErrReportDatabaseUnableToCompleteOperation),
 			result.Error,
@@ -845,7 +999,10 @@ func (r *MediaCrudRepository) ListReportsByUser(userId uint, page, size int) ([]
 		reports = append(reports, postgresReport.ToPostReportDomain())
 	}
 
-	return reports, nil
+	// Calculate total number of pages
+	totalPages := int((totalCount + int64(size) - 1) / int64(size))
+
+	return reports, totalPages, nil
 }
 
 // GetPendingReports retrieves unresolved reports, paginated.

@@ -11,16 +11,16 @@ type MediaService interface {
 	UploadImage(image domain.PostImage) (domain.PostImage, error)
 	DeleteImage(imageKey string) error
 	GetImage(imageKey string) (domain.PostImage, error)
-	ListImages(postId uint, page, size int) ([]domain.PostImage, error)
+	ListImages(postId uint, page, size int) ([]domain.PostImage, int, error)
 	SetMainImage(postId, imageId uint) error
 
 	// Report Operations
 	CreateReport(report domain.PostReport) (domain.PostReport, error)
 	DeleteReport(reportId uint) error
 	GetReport(reportId uint) (domain.PostReport, error)
-	ListReports(page, size int) ([]domain.PostReport, error)
-	ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, error)
-	ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, error)
+	ListReports(page, size int) ([]domain.PostReport, int, error)
+	ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, int, error)
+	ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, int, error)
 	GetPendingReports(page, size int) ([]domain.PostReport, error)
 	ConfirmReport(reportId uint) error
 	RejectReport(reportId uint) error
@@ -31,21 +31,21 @@ type MediaService interface {
 	ListPosts(page, size int) ([]domain.Post, int, error)
 	GetPost(postId uint) (domain.Post, error)
 	UpdatePost(postId uint, updatedPost domain.Post) (domain.Post, error)
-	ListPostsByUser(userId uint, page, size int) ([]domain.Post, error)
+	ListPostsByUser(userId uint, page, size int) ([]domain.Post, int, error)
 
 	// Comment Operations
 	CreateComment(comment domain.PostComment) (domain.PostComment, error)
 	DeleteComment(commentId uint) error
-	ListComments(postId uint, page, size int) ([]domain.PostComment, error)
+	ListComments(postId uint, page, size int) ([]domain.PostComment, int, error)
 	GetComment(commentId uint) (domain.PostComment, error)
 	UpdateComment(commentId uint, updatedComment domain.PostComment) (domain.PostComment, error)
 
 	// Like Operations
 	CreateLike(userId, postId uint) (domain.PostLike, error)
 	DeleteLike(likeId uint) error
-	ListLikes(page, size int) ([]domain.PostLike, error)
+	ListLikes(page, size int) ([]domain.PostLike, int, error)
 	GetLike(likeId uint) (domain.PostLike, error)
-	ListPostLikes(postId uint, page, size int) ([]domain.PostLike, error)
+	ListPostLikes(postId uint, page, size int) ([]domain.PostLike, int, error)
 }
 
 type MediaServiceStruct struct {
@@ -95,7 +95,7 @@ func (s *MediaServiceStruct) GetImage(imageKey string) (domain.PostImage, error)
 	return s.mediaPort.GetImageFromS3(imageKey)
 }
 
-func (s *MediaServiceStruct) ListImages(postId uint, page, size int) ([]domain.PostImage, error) {
+func (s *MediaServiceStruct) ListImages(postId uint, page, size int) ([]domain.PostImage, int, error) {
 	s.logger.Infof("Listing images for post ID: %d", postId)
 	return s.mediaPort.ListImagesFromS3(postId, page, size)
 }
@@ -121,17 +121,17 @@ func (s *MediaServiceStruct) GetReport(reportId uint) (domain.PostReport, error)
 	return s.reportPort.GetReport(reportId)
 }
 
-func (s *MediaServiceStruct) ListReports(page, size int) ([]domain.PostReport, error) {
+func (s *MediaServiceStruct) ListReports(page, size int) ([]domain.PostReport, int, error) {
 	s.logger.Info("Listing all reports")
 	return s.reportPort.ListReports(page, size)
 }
 
-func (s *MediaServiceStruct) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, error) {
+func (s *MediaServiceStruct) ListReportsByPost(postId uint, page, size int) ([]domain.PostReport, int, error) {
 	s.logger.Infof("Listing reports for post ID: %d", postId)
 	return s.reportPort.ListReportsByPost(postId, page, size)
 }
 
-func (s *MediaServiceStruct) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, error) {
+func (s *MediaServiceStruct) ListReportsByUser(userId uint, page, size int) ([]domain.PostReport, int, error) {
 	s.logger.Infof("Listing reports by user ID: %d", userId)
 	return s.reportPort.ListReportsByUser(userId, page, size)
 }
@@ -181,7 +181,7 @@ func (s *MediaServiceStruct) UpdatePost(postId uint, updatedPost domain.Post) (d
 	return s.postPort.UpdatePost(postId, updatedPost)
 }
 
-func (s *MediaServiceStruct) ListPostsByUser(userId uint, page, size int) ([]domain.Post, error) {
+func (s *MediaServiceStruct) ListPostsByUser(userId uint, page, size int) ([]domain.Post, int, error) {
 	s.logger.Infof("Listing posts for user ID: %d", userId)
 	return s.postPort.ListPostsByUser(userId, page, size)
 }
@@ -197,7 +197,7 @@ func (s *MediaServiceStruct) DeleteComment(commentId uint) error {
 	return s.commentPort.DeleteComment(commentId)
 }
 
-func (s *MediaServiceStruct) ListComments(postId uint, page, size int) ([]domain.PostComment, error) {
+func (s *MediaServiceStruct) ListComments(postId uint, page, size int) ([]domain.PostComment, int, error) {
 	s.logger.Infof("Listing comments for post ID: %d", postId)
 	return s.commentPort.ListComments(postId, page, size)
 }
@@ -223,7 +223,7 @@ func (s *MediaServiceStruct) DeleteLike(likeId uint) error {
 	return s.likePort.DeleteLike(likeId)
 }
 
-func (s *MediaServiceStruct) ListLikes(page, size int) ([]domain.PostLike, error) {
+func (s *MediaServiceStruct) ListLikes(page, size int) ([]domain.PostLike, int, error) {
 	s.logger.Info("Listing all likes")
 	return s.likePort.ListLikes(page, size)
 }
@@ -233,7 +233,7 @@ func (s *MediaServiceStruct) GetLike(likeId uint) (domain.PostLike, error) {
 	return s.likePort.GetLike(likeId)
 }
 
-func (s *MediaServiceStruct) ListPostLikes(postId uint, page, size int) ([]domain.PostLike, error) {
+func (s *MediaServiceStruct) ListPostLikes(postId uint, page, size int) ([]domain.PostLike, int, error) {
 	s.logger.Infof("Listing likes for post ID: %d", postId)
 	return s.likePort.GetPostLikes(postId, page, size)
 }

@@ -84,6 +84,7 @@ message PostImage {
 message PaginationRequest {
   int64 page = 1;
   int64 size = 2;
+  int64 postId = 3;
 }
 
 message PaginationResponsePost {
@@ -97,7 +98,7 @@ message PaginationResponseComments {
   uint64 CurrentPage = 1;
   uint64 PageSize = 2;
   uint64 TotalPages = 3;
-  repeated Post post = 4;
+  repeated PostComment comments = 4;
 }
 
 message PostCommentsByIdRequest {

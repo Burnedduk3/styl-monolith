@@ -23,6 +23,6 @@ func BuildMediaCrudDomainGrpc(log *logrus.Logger) stylGrpc.CrudPostGrcp {
 	db := databaseClient.GetDB()
 	postgresMediaRepo := mediaPostgresAdapter.NewMediaCrudRepository(log, db)
 	mediaService := services.NewMediaService(log, postgresMediaRepo, postgresMediaRepo, postgresMediaRepo, postgresMediaRepo, postgresMediaRepo)
-	grpcMediaService := stylGrpc.NewCrudPostGrcp(mediaService)
+	grpcMediaService := stylGrpc.NewCrudPostGrcp(mediaService, log)
 	return *grpcMediaService
 }

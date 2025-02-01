@@ -152,7 +152,7 @@ func (c CrudPostStruct) GetPostImagesById(ech echo.Context, id string) error {
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
 	}
 
-	images, err := c.mediaService.ListImages(uint(postId), 1, 100)
+	images, _, err := c.mediaService.ListImages(uint(postId), 1, 100)
 	if err != nil {
 		c.logger.Error("Failed to retrieve post images: ", err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to retrieve images"})
@@ -265,7 +265,7 @@ func (c CrudPostStruct) GetListReports(ech echo.Context) error {
 		size = 10
 	}
 
-	reports, err := c.mediaService.ListReports(page, size)
+	reports, _, err := c.mediaService.ListReports(page, size)
 	if err != nil {
 		c.logger.Error("Failed to list reports: ", err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list reports"})
@@ -297,7 +297,7 @@ func (c CrudPostStruct) GetListImages(ech echo.Context) error {
 	}
 
 	// Assuming all images are paginated
-	images, err := c.mediaService.ListImages(uint(id), page, size)
+	images, _, err := c.mediaService.ListImages(uint(id), page, size)
 	if err != nil {
 		c.logger.Error("Failed to list images: ", err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list images"})

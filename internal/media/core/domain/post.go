@@ -190,3 +190,15 @@ func convertUintSliceToUint64Slice(input []uint) []uint64 {
 	}
 	return result
 }
+
+func (c *PostComment) ToProtoDomain() *pb.PostComment {
+	return &pb.PostComment{
+		Id:         uint64(c.Id),
+		UserId:     uint64(c.UserId),
+		PostId:     uint64(c.PostId),
+		Comment:    c.Comment,
+		Created:    timestamppb.New(c.Created),
+		IsDeleted:  c.IsDeleted,
+		IsReported: c.IsReported,
+	}
+}
