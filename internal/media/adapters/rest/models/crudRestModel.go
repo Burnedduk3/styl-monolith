@@ -349,3 +349,29 @@ func (p *ImageDeletePayload) Validate() error {
 	}
 	return nil
 }
+
+type LikePayload struct {
+	UserId uint `json:"user_id"`
+	PostId uint `json:"post_id"`
+}
+
+func (l *LikePayload) Validate() error {
+	if l.UserId <= 0 || l.PostId <= 0 {
+		return errors.New("id is required and must be greater than zero")
+	}
+	return nil
+}
+
+func (l *LikePayload) ToDomainLike() domain.PostLike {
+	return domain.PostLike{
+		UserId: l.UserId,
+		PostId: l.PostId,
+	}
+}
+
+func NewResponseLikeFromDomain(like domain.PostLike) LikePayload {
+	return LikePayload{
+		UserId: like.UserId,
+		PostId: like.PostId,
+	}
+}

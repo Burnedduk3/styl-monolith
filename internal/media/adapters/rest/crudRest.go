@@ -7,12 +7,14 @@ import (
 	"strconv"
 	"styl-monolith/internal/media/adapters/rest/models"
 	"styl-monolith/internal/media/core/services"
+	"styl-monolith/pkg/logger"
 )
 
 type CrudPostHandler interface {
 	CreatePost(ech echo.Context) error
 	CreateComment(ech echo.Context) error
 	CreateReport(ech echo.Context) error
+	CreateLike(ech echo.Context) error
 	UploadPostImages(ech echo.Context) error
 	GetPostById(ech echo.Context, id string) error
 	PostImagesById(ech echo.Context, id string) error
@@ -41,40 +43,56 @@ func NewCrudPostHandler(logger *logrus.Logger, mediaService services.MediaServic
 func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 	var payload models.PostPayload
 	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error("Failed to bind PostPayload: ", err)
+		c.logger.Error(logger.FailedToBindPostPayload, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
 	}
 
 	if err := payload.Validate(); err != nil {
-		c.logger.Error("Validation error: ", err)
+		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
+	}
+
+	form, err := ech.MultipartForm()
+	if err != nil {
+		c.logger.Error(logger.FailedToParseMultipartForm, err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid form data"})
+	}
+
+	files := form.File["images"]
+	if len(files) > 8 || len(files) < 1 {
+		c.logger.Error(logger.TooManyImagesUploaded)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "You can upload up to 8 images only"})
 	}
 
 	post, err := c.mediaService.CreatePost(payload.ToDomainPost())
 	if err != nil {
-		c.logger.Error("Failed to create post: ", err)
+		c.logger.Error(logger.FailedToCreatePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create post"})
 	}
+
+	c.logger.Info(logger.SuccessfullyCreatedPost)
 	return ech.JSON(http.StatusCreated, models.NewPostResponseFromDomain(post))
 }
 
 func (c CrudPostStruct) CreateComment(ech echo.Context) error {
 	var payload models.CommentPayload
 	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error("Failed to bind CommentPayload: ", err)
+		c.logger.Error(logger.FailedToBindCommentPayload, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
 	}
 
 	if err := payload.Validate(); err != nil {
-		c.logger.Error("Validation error: ", err)
+		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
 
 	comment, err := c.mediaService.CreateComment(payload.ToDomainComment())
 	if err != nil {
-		c.logger.Error("Failed to create comment: ", err)
+		c.logger.Error(logger.FailedToCreateComment, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create comment"})
 	}
+
+	c.logger.Info(logger.SuccessfullyCreatedComment)
 	return ech.JSON(http.StatusCreated, models.NewCommentResponseFromDomain(comment))
 }
 
@@ -98,10 +116,10 @@ func (c CrudPostStruct) CreateReport(ech echo.Context) error {
 	return ech.JSON(http.StatusCreated, models.NewReportResponseFromDomainReport(report))
 }
 
-func (c CrudPostStruct) UploadPostImages(ech echo.Context) error {
-	var payload models.ImagePayload
+func (c CrudPostStruct) CreateLike(ech echo.Context) error {
+	var payload models.LikePayload
 	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error("Failed to bind ImagePayload: ", err)
+		c.logger.Error("Failed to bind LikePayload: ", err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
 	}
 
@@ -110,54 +128,83 @@ func (c CrudPostStruct) UploadPostImages(ech echo.Context) error {
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
 
+	like, err := c.mediaService.CreateLike(payload.ToDomainLike())
+	if err != nil {
+		c.logger.Error("Failed to create like: ", err)
+		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create like"})
+	}
+	return ech.JSON(http.StatusCreated, models.NewResponseLikeFromDomain(like))
+}
+
+func (c CrudPostStruct) UploadPostImages(ech echo.Context) error {
+	var payload models.ImagePayload
+	if err := ech.Bind(&payload); err != nil {
+		c.logger.Error(logger.FailedToBindImagePayload, err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
+	}
+
+	if err := payload.Validate(); err != nil {
+		c.logger.Error(logger.ValidationError, err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
+	}
+
 	image, err := c.mediaService.UploadImage(payload.ToDomainImage())
 	if err != nil {
-		c.logger.Error("Failed to upload image: ", err)
+		c.logger.Error(logger.FailedToUploadImage, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to upload image"})
 	}
+
+	c.logger.Info(logger.SuccessfullyUploadedImage)
 	return ech.JSON(http.StatusCreated, models.NewImageResponseFromDomain(image))
 }
 
 func (c CrudPostStruct) GetPostById(ech echo.Context, id string) error {
 	postId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		c.logger.Error(logger.InvalidPostID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
 	}
 
 	post, err := c.mediaService.GetPost(uint(postId))
 	if err != nil {
-		c.logger.Error("Failed to retrieve post: ", err)
+		c.logger.Error(logger.FailedToRetrievePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to get post"})
 	}
+
+	c.logger.Info(logger.SuccessfullyRetrievedPost)
 	return ech.JSON(http.StatusOK, models.NewPostResponseFromDomain(post))
 }
 
 func (c CrudPostStruct) DeletePost(ech echo.Context, id string) error {
 	postId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		c.logger.Error(logger.InvalidPostID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
 	}
 
 	if err := c.mediaService.DeletePost(uint(postId)); err != nil {
-		c.logger.Error("Failed to delete post: ", err)
+		c.logger.Error(logger.FailedToDeletePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to delete post"})
 	}
+
+	c.logger.Info(logger.SuccessfullyDeletedPost)
 	return ech.JSON(http.StatusNoContent, nil)
 }
 
 func (c CrudPostStruct) PostImagesById(ech echo.Context, id string) error {
 	postId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		c.logger.Error("Invalid post ID: ", err)
+		c.logger.Error(logger.InvalidPostID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
 	}
 
 	images, _, err := c.mediaService.ListImages(uint(postId), 1, 100)
 	if err != nil {
-		c.logger.Error("Failed to retrieve post images: ", err)
+		c.logger.Error(logger.FailedToRetrieveImages, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to retrieve images"})
 	}
 
+	c.logger.Info(logger.SuccessfullyRetrievedImages)
 	response := models.NewPaginatedImagesResponse(images, 1, 100)
 	return ech.JSON(http.StatusOK, response)
 }
@@ -165,89 +212,99 @@ func (c CrudPostStruct) PostImagesById(ech echo.Context, id string) error {
 func (c CrudPostStruct) DeleteComment(ech echo.Context, id string) error {
 	commentId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		c.logger.Error("Invalid comment ID: ", err)
+		c.logger.Error(logger.InvalidCommentID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid comment ID"})
 	}
 
 	if err := c.mediaService.DeleteComment(uint(commentId)); err != nil {
-		c.logger.Error("Failed to delete comment: ", err)
+		c.logger.Error(logger.FailedToDeleteComment, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to delete comment"})
 	}
+
+	c.logger.Info(logger.SuccessfullyDeletedComment)
 	return ech.JSON(http.StatusNoContent, nil)
 }
 
 func (c CrudPostStruct) DeleteReport(ech echo.Context, id string) error {
 	reportId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		c.logger.Error("Invalid report ID: ", err)
+		c.logger.Error(logger.InvalidReportID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid report ID"})
 	}
 
 	if err := c.mediaService.DeleteReport(uint(reportId)); err != nil {
-		c.logger.Error("Failed to delete report: ", err)
+		c.logger.Error(logger.FailedToDeleteReport, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to delete report"})
 	}
+
+	c.logger.Info(logger.SuccessfullyDeletedReport)
 	return ech.JSON(http.StatusNoContent, nil)
 }
 
 func (c CrudPostStruct) DeleteImage(ech echo.Context, id string) error {
 	imageKey := id // Assuming imageKey is passed as the ID
 	if err := c.mediaService.DeleteImage(imageKey); err != nil {
-		c.logger.Error("Failed to delete image: ", err)
+		c.logger.Error(logger.FailedToDeleteImage, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to delete image"})
 	}
+
+	c.logger.Info(logger.SuccessfullyDeletedImage)
 	return ech.JSON(http.StatusNoContent, nil)
 }
 
 func (c CrudPostStruct) UpdatePost(ech echo.Context, id string) error {
 	var payload models.PostPayload
 	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error("Failed to bind PostPayload: ", err)
+		c.logger.Error(logger.FailedToBindPostPayload, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
 	}
 
 	if err := payload.Validate(); err != nil {
-		c.logger.Error("Validation error: ", err)
+		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
 
 	postId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		c.logger.Error("Invalid post ID: ", err)
+		c.logger.Error(logger.InvalidPostID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
 	}
 
 	updatedPost, err := c.mediaService.UpdatePost(uint(postId), payload.ToDomainPost())
 	if err != nil {
-		c.logger.Error("Failed to update post: ", err)
+		c.logger.Error(logger.FailedToUpdatePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to update post"})
 	}
+
+	c.logger.Info(logger.SuccessfullyUpdatedPost)
 	return ech.JSON(http.StatusOK, models.NewPostResponseFromDomain(updatedPost))
 }
 
 func (c CrudPostStruct) UpdateComment(ech echo.Context, id string) error {
 	var payload models.CommentPayload
 	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error("Failed to bind CommentPayload: ", err)
+		c.logger.Error(logger.FailedToBindCommentPayload, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
 	}
 
 	if err := payload.Validate(); err != nil {
-		c.logger.Error("Validation error: ", err)
+		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
 
 	commentId, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		c.logger.Error("Invalid comment ID: ", err)
+		c.logger.Error(logger.InvalidCommentID, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid comment ID"})
 	}
 
 	updatedComment, err := c.mediaService.UpdateComment(uint(commentId), payload.ToDomainComment())
 	if err != nil {
-		c.logger.Error("Failed to update comment: ", err)
+		c.logger.Error(logger.FailedToUpdateComment, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to update comment"})
 	}
+
+	c.logger.Info(logger.SuccessfullyUpdatedComment)
 	return ech.JSON(http.StatusOK, models.NewCommentResponseFromDomain(updatedComment))
 }
 
@@ -257,20 +314,23 @@ func (c CrudPostStruct) ListReports(ech echo.Context) error {
 
 	page, err := strconv.Atoi(pageParam)
 	if err != nil || page < 1 {
+		c.logger.Warn(logger.InvalidPageParam, err)
 		page = 1
 	}
 
 	size, err := strconv.Atoi(sizeParam)
 	if err != nil || size < 1 {
+		c.logger.Warn(logger.InvalidSizeParam, err)
 		size = 10
 	}
 
 	reports, _, err := c.mediaService.ListReports(page, size)
 	if err != nil {
-		c.logger.Error("Failed to list reports: ", err)
+		c.logger.Error(logger.FailedToListReports, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list reports"})
 	}
 
+	c.logger.Info(logger.SuccessfullyListedReports)
 	response := models.NewPaginatedReportsResponse(reports, page, size)
 	return ech.JSON(http.StatusOK, response)
 }
@@ -282,27 +342,29 @@ func (c CrudPostStruct) ListImages(ech echo.Context) error {
 
 	page, err := strconv.Atoi(pageParam)
 	if err != nil || page < 1 {
+		c.logger.Warn(logger.InvalidPageParam, err)
 		page = 1
 	}
 
 	size, err := strconv.Atoi(sizeParam)
 	if err != nil || size < 1 {
+		c.logger.Warn(logger.InvalidSizeParam, err)
 		size = 10
 	}
 
 	id, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil || size <= 1 {
-		c.logger.Error("Validation error: ", err)
+	if err != nil {
+		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
 
-	// Assuming all images are paginated
 	images, _, err := c.mediaService.ListImages(uint(id), page, size)
 	if err != nil {
-		c.logger.Error("Failed to list images: ", err)
+		c.logger.Error(logger.FailedToListImages, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list images"})
 	}
 
+	c.logger.Info(logger.SuccessfullyListedImages)
 	response := models.NewPaginatedImagesResponse(images, page, size)
 	return ech.JSON(http.StatusOK, response)
 }

@@ -42,7 +42,7 @@ type MediaService interface {
 	UpdateComment(commentId uint, updatedComment domain.PostComment) (domain.PostComment, error)
 
 	// Like Operations
-	CreateLike(userId, postId uint) (domain.PostLike, error)
+	CreateLike(like domain.PostLike) (domain.PostLike, error)
 	DeleteLike(likeId uint) error
 	ListLikes(page, size int) ([]domain.PostLike, int, error)
 	GetLike(likeId uint) (domain.PostLike, error)
@@ -220,9 +220,9 @@ func (s *MediaServiceStruct) UpdateComment(commentId uint, updatedComment domain
 }
 
 // Like Operations
-func (s *MediaServiceStruct) CreateLike(userId, postId uint) (domain.PostLike, error) {
-	s.logger.Infof("Creating like for post ID: %d by user ID: %d", postId, userId)
-	return s.likePort.CreateLike(userId, postId)
+func (s *MediaServiceStruct) CreateLike(like domain.PostLike) (domain.PostLike, error) {
+	s.logger.Infof("Creating like for post ID: %d by user ID: %d", like.PostId, like.UserId)
+	return s.likePort.CreateLike(like.UserId, like.PostId)
 }
 
 func (s *MediaServiceStruct) DeleteLike(likeId uint) error {
