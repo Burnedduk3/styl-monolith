@@ -56,6 +56,7 @@ type MediaServiceStruct struct {
 	commentPort ports.CommentPort
 	postPort    ports.PostPort
 	likePort    ports.LikePort
+	fileManager ports.FileManager
 }
 
 // NewMediaService creates a new instance of MediaService.
@@ -66,6 +67,7 @@ func NewMediaService(
 	commentPort ports.CommentPort,
 	postPort ports.PostPort,
 	likePort ports.LikePort,
+	fileManager ports.FileManager,
 ) MediaService {
 	return &MediaServiceStruct{
 		logger:      log,
@@ -74,6 +76,7 @@ func NewMediaService(
 		commentPort: commentPort,
 		postPort:    postPort,
 		likePort:    likePort,
+		fileManager: fileManager,
 	}
 }
 func (s *MediaServiceStruct) UploadImage(image domain.PostImage) (domain.PostImage, error) {
