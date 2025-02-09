@@ -110,9 +110,20 @@ message PostCommentsByIdResponse {
   repeated PostComment comments = 2;
 }
 
+message User {
+  uint64 UserId = 1;
+}
+
+message UserFeed {
+    User user = 1;
+    PaginationRequest pagRequest = 2;
+}
+
 service CrudPostService {
   rpc ListPosts(PaginationRequest) returns (PaginationResponsePost);
   rpc ListComments(PaginationRequest) returns (PaginationResponseComments);
   rpc PostCommentsById(PostCommentsByIdRequest) returns (PostCommentsByIdResponse);
+  rpc GetUserProfile(User) returns (PaginationResponsePost);
+  rpc GetUserFeed(UserFeed) returns (PaginationResponsePost);
 }
 

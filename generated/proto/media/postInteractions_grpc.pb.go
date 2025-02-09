@@ -22,6 +22,8 @@ const (
 	CrudPostService_ListPosts_FullMethodName        = "/handler.CrudPostService/ListPosts"
 	CrudPostService_ListComments_FullMethodName     = "/handler.CrudPostService/ListComments"
 	CrudPostService_PostCommentsById_FullMethodName = "/handler.CrudPostService/PostCommentsById"
+	CrudPostService_GetUserProfile_FullMethodName   = "/handler.CrudPostService/GetUserProfile"
+	CrudPostService_GetUserFeed_FullMethodName      = "/handler.CrudPostService/GetUserFeed"
 )
 
 // CrudPostServiceClient is the client API for CrudPostService service.
@@ -31,6 +33,8 @@ type CrudPostServiceClient interface {
 	ListPosts(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponsePost, error)
 	ListComments(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponseComments, error)
 	PostCommentsById(ctx context.Context, in *PostCommentsByIdRequest, opts ...grpc.CallOption) (*PostCommentsByIdResponse, error)
+	GetUserProfile(ctx context.Context, in *User, opts ...grpc.CallOption) (*PaginationResponsePost, error)
+	GetUserFeed(ctx context.Context, in *UserFeed, opts ...grpc.CallOption) (*PaginationResponsePost, error)
 }
 
 type crudPostServiceClient struct {
@@ -71,6 +75,26 @@ func (c *crudPostServiceClient) PostCommentsById(ctx context.Context, in *PostCo
 	return out, nil
 }
 
+func (c *crudPostServiceClient) GetUserProfile(ctx context.Context, in *User, opts ...grpc.CallOption) (*PaginationResponsePost, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PaginationResponsePost)
+	err := c.cc.Invoke(ctx, CrudPostService_GetUserProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *crudPostServiceClient) GetUserFeed(ctx context.Context, in *UserFeed, opts ...grpc.CallOption) (*PaginationResponsePost, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PaginationResponsePost)
+	err := c.cc.Invoke(ctx, CrudPostService_GetUserFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CrudPostServiceServer is the server API for CrudPostService service.
 // All implementations must embed UnimplementedCrudPostServiceServer
 // for forward compatibility.
@@ -78,6 +102,8 @@ type CrudPostServiceServer interface {
 	ListPosts(context.Context, *PaginationRequest) (*PaginationResponsePost, error)
 	ListComments(context.Context, *PaginationRequest) (*PaginationResponseComments, error)
 	PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error)
+	GetUserProfile(context.Context, *User) (*PaginationResponsePost, error)
+	GetUserFeed(context.Context, *UserFeed) (*PaginationResponsePost, error)
 	mustEmbedUnimplementedCrudPostServiceServer()
 }
 
@@ -96,6 +122,12 @@ func (UnimplementedCrudPostServiceServer) ListComments(context.Context, *Paginat
 }
 func (UnimplementedCrudPostServiceServer) PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PostCommentsById not implemented")
+}
+func (UnimplementedCrudPostServiceServer) GetUserProfile(context.Context, *User) (*PaginationResponsePost, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
+}
+func (UnimplementedCrudPostServiceServer) GetUserFeed(context.Context, *UserFeed) (*PaginationResponsePost, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserFeed not implemented")
 }
 func (UnimplementedCrudPostServiceServer) mustEmbedUnimplementedCrudPostServiceServer() {}
 func (UnimplementedCrudPostServiceServer) testEmbeddedByValue()                         {}
@@ -172,6 +204,42 @@ func _CrudPostService_PostCommentsById_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CrudPostService_GetUserProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(User)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CrudPostServiceServer).GetUserProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CrudPostService_GetUserProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CrudPostServiceServer).GetUserProfile(ctx, req.(*User))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CrudPostService_GetUserFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserFeed)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CrudPostServiceServer).GetUserFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CrudPostService_GetUserFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CrudPostServiceServer).GetUserFeed(ctx, req.(*UserFeed))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CrudPostService_ServiceDesc is the grpc.ServiceDesc for CrudPostService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +258,14 @@ var CrudPostService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PostCommentsById",
 			Handler:    _CrudPostService_PostCommentsById_Handler,
+		},
+		{
+			MethodName: "GetUserProfile",
+			Handler:    _CrudPostService_GetUserProfile_Handler,
+		},
+		{
+			MethodName: "GetUserFeed",
+			Handler:    _CrudPostService_GetUserFeed_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

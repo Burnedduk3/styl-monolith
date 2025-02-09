@@ -3,9 +3,8 @@ package grpc
 import (
 	"context"
 	"github.com/sirupsen/logrus"
-	"styl-monolith/internal/media/core/services"
-
 	pb "styl-monolith/generated/proto/media"
+	"styl-monolith/internal/media/core/services"
 )
 
 type CrudPostGrcp struct {
@@ -61,4 +60,12 @@ func (s *CrudPostGrcp) ListComments(ctx context.Context, req *pb.PaginationReque
 func (s *CrudPostGrcp) PostCommentsById(ctx context.Context, req *pb.PostCommentsByIdRequest) (*pb.PostCommentsByIdResponse, error) {
 	s.log.Printf("Received CreatePost request: %v", req.PostId)
 	return &pb.PostCommentsByIdResponse{}, nil
+}
+
+func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.User) (*pb.PaginationResponsePost, error) {
+	return nil, nil
+}
+
+func (s *CrudPostGrcp) GetUserFeed(ctx context.Context, req *pb.UserFeed) (*pb.PaginationResponsePost, error) {
+	return nil, nil
 }
