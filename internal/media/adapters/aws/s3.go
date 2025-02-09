@@ -11,13 +11,14 @@ import (
 	"styl-monolith/pkg/errorhandler"
 )
 
+// S3Service is a structure providing functionality to interact with AWS S3 for file operations, such as upload and delete.
 type S3Service struct {
 	s3Client *s3.Client
 	logger   *logrus.Logger
 	region   string
 }
 
-// NewS3Service initializes the S3 service with the provided bucket name.
+// NewS3Service initializes and returns a new instance of S3Service with the provided AWS S3 client, logger, and region.
 func NewS3Service(s3Client *s3.Client, log *logrus.Logger, region string) *S3Service {
 	return &S3Service{
 		logger:   log,
@@ -26,7 +27,7 @@ func NewS3Service(s3Client *s3.Client, log *logrus.Logger, region string) *S3Ser
 	}
 }
 
-// SaveImageToS3 saves an image to S3 and returns the saved image with its key or an error.
+// SaveImageToS3 uploads an image file to an S3 bucket and returns the updated image metadata or an error.
 func (s *S3Service) SaveImageToS3(imageMetadata domain.PostImage, imageFile *multipart.FileHeader, bucketName, objectKey string, postId uint) (domain.PostImage, error) {
 	// Open the image file
 	file, err := imageFile.Open()
@@ -62,7 +63,8 @@ func (s *S3Service) SaveImageToS3(imageMetadata domain.PostImage, imageFile *mul
 	return imageMetadata, nil
 }
 
-// DeleteImageFromS3 deletes an image from S3 using the given bucket name and object key.
+// DeleteImageFromS3 removes an object from the specified S3 bucket using the bucket name and object key.
+// It returns an error if the deletion fails, wrapped in a custom DomainError.
 func (s *S3Service) DeleteImageFromS3(bucketName, objectKey string) error {
 	_, err := s.s3Client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),
