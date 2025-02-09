@@ -1,13 +1,13 @@
 package ports
 
-import "styl-monolith/internal/media/core/domain"
+import (
+	"mime/multipart"
+	"styl-monolith/internal/media/core/domain"
+)
 
 type MediaPort interface {
-	SaveMetadataOfImageOfS3(image domain.PostImage) (domain.PostImage, error)
-	DeleteImageFromS3(imageKey string) error
-	GetImageFromS3(imageKey string) (domain.PostImage, error)
-	ListImagesFromS3(postId uint, page, size int) ([]domain.PostImage, int, error)
-	SetPostMainImage(postId, imageId uint) error
+	SaveImageToS3(imageMetadata domain.PostImage, imageFile *multipart.FileHeader, bucketName, objectKey string, postId uint) (domain.PostImage, error)
+	DeleteImageFromS3(bucketName, objectKey string) error
 }
 
 type CommentPort interface {
@@ -20,6 +20,8 @@ type CommentPort interface {
 
 type PostPort interface {
 	CreatePost(post domain.Post) (domain.Post, error)
+	SaveMetadataOfImageOfS3(image domain.PostImage) (domain.PostImage, error)
+	SetPostMainImage(postId, imageId uint) error
 	DeletePost(postId uint) error
 	HardDeletePost(postId uint) error
 	ListPosts(page, size int) ([]domain.Post, int, error)

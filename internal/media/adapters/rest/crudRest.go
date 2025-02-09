@@ -18,7 +18,6 @@ type CrudPostHandler interface {
 	CreateReport(ech echo.Context) error
 	CreateLike(ech echo.Context) error
 	GetPostById(ech echo.Context, id string) error
-	PostImagesById(ech echo.Context, id string) error
 	DeletePost(ech echo.Context, id string) error
 	DeleteComment(ech echo.Context, id string) error
 	DeleteReport(ech echo.Context, id string) error
@@ -26,7 +25,6 @@ type CrudPostHandler interface {
 	UpdatePost(ech echo.Context, id string) error
 	UpdateComment(ech echo.Context, id string) error
 	ListReports(ech echo.Context) error
-	ListImages(ech echo.Context) error
 }
 
 type CrudPostStruct struct {
@@ -65,7 +63,6 @@ func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 		c.logger.Error(logger.ValidationError, err)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
 	}
-	var imageToUpload []domain.PostImage
 	files := form.File["images"]
 
 	if len(files) > 8 || len(files) < 1 {
@@ -78,7 +75,7 @@ func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 		c.logger.Error(logger.FailedToCreatePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create post"})
 	}
-
+	var imagesToUpload []domain.PostImage
 	for index, file := range files {
 		img, err := domain.ToPostImageDomainFromMultipartForm(file, index)
 		if err != nil {
@@ -87,20 +84,12 @@ func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 			c.logger.Error(logger.FailedToDeletePost, err)
 			return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Failed to parse multipart form"})
 		}
-		userEmail := ech.Get("email").(string)
-		postImage, err := c.mediaService.UploadImage(img, file, userEmail, post.Id)
-		if err != nil {
-			c.logger.Error(logger.FailedToUploadImage, err)
-			err = c.mediaService.HardDeletePost(post.Id)
-			if err != nil {
-				c.logger.Error(logger.FailedToDeletePost, err)
-			}
-			return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Failed to parse multipart form"})
-		}
-		imageToUpload = append(imageToUpload, postImage)
+		imagesToUpload = append(imagesToUpload, img)
 	}
+	userEmail := ech.Get("email").(string)
+	postImages, err := c.mediaService.UploadImage(imagesToUpload, files, userEmail, post.Id)
 
-	post.PostImages = imageToUpload
+	post.PostImages = postImages
 	post, err = c.mediaService.UpdatePost(post.Id, post)
 	c.logger.Info(logger.SuccessfullyCreatedPost)
 	return ech.JSON(http.StatusCreated, models.NewPostResponseFromDomain(post))
@@ -199,24 +188,6 @@ func (c CrudPostStruct) DeletePost(ech echo.Context, id string) error {
 
 	c.logger.Info(logger.SuccessfullyDeletedPost)
 	return ech.JSON(http.StatusNoContent, nil)
-}
-
-func (c CrudPostStruct) PostImagesById(ech echo.Context, id string) error {
-	postId, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		c.logger.Error(logger.InvalidPostID, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid post ID"})
-	}
-
-	images, _, err := c.mediaService.ListImages(uint(postId), 1, 100)
-	if err != nil {
-		c.logger.Error(logger.FailedToRetrieveImages, err)
-		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to retrieve images"})
-	}
-
-	c.logger.Info(logger.SuccessfullyRetrievedImages)
-	response := models.NewPaginatedImagesResponse(images, 1, 100)
-	return ech.JSON(http.StatusOK, response)
 }
 
 func (c CrudPostStruct) DeleteComment(ech echo.Context, id string) error {
@@ -342,39 +313,5 @@ func (c CrudPostStruct) ListReports(ech echo.Context) error {
 
 	c.logger.Info(logger.SuccessfullyListedReports)
 	response := models.NewPaginatedReportsResponse(reports, page, size)
-	return ech.JSON(http.StatusOK, response)
-}
-
-func (c CrudPostStruct) ListImages(ech echo.Context) error {
-	pageParam := ech.QueryParam("page")
-	sizeParam := ech.QueryParam("size")
-	idParam := ech.QueryParam("id")
-
-	page, err := strconv.Atoi(pageParam)
-	if err != nil || page < 1 {
-		c.logger.Warn(logger.InvalidPageParam, err)
-		page = 1
-	}
-
-	size, err := strconv.Atoi(sizeParam)
-	if err != nil || size < 1 {
-		c.logger.Warn(logger.InvalidSizeParam, err)
-		size = 10
-	}
-
-	id, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		c.logger.Error(logger.ValidationError, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
-	}
-
-	images, _, err := c.mediaService.ListImages(uint(id), page, size)
-	if err != nil {
-		c.logger.Error(logger.FailedToListImages, err)
-		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to list images"})
-	}
-
-	c.logger.Info(logger.SuccessfullyListedImages)
-	response := models.NewPaginatedImagesResponse(images, page, size)
 	return ech.JSON(http.StatusOK, response)
 }

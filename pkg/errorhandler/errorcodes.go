@@ -29,6 +29,10 @@ const (
 
 	// Infra errors
 	ErrSaveTokenToDynamo = "DYNAMO_01"
+	ErrS3DeleteFailed    = "S3_001"
+	ErrS3RetrieveFailed  = "S3_002"
+	ErrS3ReadFailed      = "S3_003"
+	ErrS3ListFailed      = "S3_004"
 
 	// Auth errors
 	ErrAuthInvalidToken            = "AUTH_001"
@@ -104,6 +108,10 @@ var errorMessages = map[string]string{
 	ErrS3UploadFailed:                                  "Upload to S3 failed.",
 	ErrMetadataSaveFailed:                              "Failed to save metadata for the uploaded image.",
 	ErrMissingEnvVariable:                              "Missing environment variable: %s",
+	ErrS3DeleteFailed:                                  "Failed to delete image from S3.",
+	ErrS3RetrieveFailed:                                "Failed to retrieve image from S3.",
+	ErrS3ReadFailed:                                    "Failed to read image from S3.",
+	ErrS3ListFailed:                                    "Failed to list images from S3.",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.

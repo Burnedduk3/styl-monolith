@@ -1,12 +1,7 @@
 package services
 
 import (
-	"context"
-	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"mime/multipart"
 	"strconv"
 	"styl-monolith/internal/media/core/domain"
@@ -18,11 +13,8 @@ import (
 
 type MediaService interface {
 	// Media Operations
-	UploadImage(imageData domain.PostImage, imageFile *multipart.FileHeader, userEmail string, postId uint) (domain.PostImage, error)
+	UploadImage(imagesData []domain.PostImage, imageFiles []*multipart.FileHeader, userEmail string, postId uint) ([]domain.PostImage, error)
 	DeleteImage(imageKey string) error
-	GetImage(imageKey string) (domain.PostImage, error)
-	ListImages(postId uint, page, size int) ([]domain.PostImage, int, error)
-	SetMainImage(postId, imageId uint) error
 
 	// Report Operations
 	CreateReport(report domain.PostReport) (domain.PostReport, error)
@@ -38,6 +30,7 @@ type MediaService interface {
 	// Post Operations
 	CreatePost(post domain.Post) (domain.Post, error)
 	DeletePost(postId uint) error
+	SetMainImage(postId, imageId uint) error
 	HardDeletePost(postId uint) error
 	ListPosts(page, size int) ([]domain.Post, int, error)
 	GetPost(postId uint) (domain.Post, error)
@@ -60,14 +53,13 @@ type MediaService interface {
 }
 
 type MediaServiceStruct struct {
-	logger      *logrus.Logger
-	mediaPort   ports.MediaPort
-	reportPort  ports.ReportPort
-	commentPort ports.CommentPort
-	postPort    ports.PostPort
-	likePort    ports.LikePort
-	fileManager ports.FileManager
-	s3Client    *s3.Client
+	logger            *logrus.Logger
+	mediaPort         ports.MediaPort
+	reportPort        ports.ReportPort
+	commentPort       ports.CommentPort
+	postPort          ports.PostPort
+	likePort          ports.LikePort
+	s3MediaBucketName string
 }
 
 // NewMediaService creates a new instance of MediaService.
@@ -78,106 +70,73 @@ func NewMediaService(
 	commentPort ports.CommentPort,
 	postPort ports.PostPort,
 	likePort ports.LikePort,
-	fileManager ports.FileManager,
-	s3Client *s3.Client,
+	s3MediaBucketName string,
 ) MediaService {
 	return &MediaServiceStruct{
-		logger:      log,
-		mediaPort:   mediaPort,
-		reportPort:  reportPort,
-		commentPort: commentPort,
-		postPort:    postPort,
-		likePort:    likePort,
-		fileManager: fileManager,
-		s3Client:    s3Client,
+		logger:            log,
+		mediaPort:         mediaPort,
+		reportPort:        reportPort,
+		commentPort:       commentPort,
+		postPort:          postPort,
+		likePort:          likePort,
+		s3MediaBucketName: s3MediaBucketName,
 	}
 }
 
-func (s *MediaServiceStruct) UploadImage(imageData domain.PostImage, imageFile *multipart.FileHeader, userEmail string, postId uint) (domain.PostImage, error) {
-	s.logger.Info("Uploading image to S3")
+func (s *MediaServiceStruct) UploadImage(imagesData []domain.PostImage, imageFiles []*multipart.FileHeader, userEmail string, postId uint) ([]domain.PostImage, error) {
+	s.logger.Info("Uploading images to S3 concurrently")
 
-	// Generate email hash
 	emailHash := utils.GenerateHashFromString(userEmail)
+	var savedImages []domain.PostImage
+	savedImageChan := make(chan domain.PostImage, len(imagesData))
+	errorChan := make(chan error, len(imagesData))
 
-	// Open the image file
-	file, err := imageFile.Open()
-	if err != nil {
-		s.logger.Errorf("Failed to open image file: %v", err)
-		return domain.PostImage{}, errorhandler.NewDomainError(
-			errorhandler.ErrFileOpenFailed,
-			errorhandler.GetErrorMessage(errorhandler.ErrFileOpenFailed),
-			err,
-		)
-	}
-	defer file.Close()
+	for index, imageMetadata := range imagesData {
+		go func(index int, imageMetadata domain.PostImage) {
+			objectKey := emailHash + "/" + strconv.FormatUint(uint64(postId), 10) + "/" + utils.GenerateHashFromString(imageMetadata.Filename) + "." + imageMetadata.Format
 
-	// Generate the S3 object key
-	objectKey := emailHash + "/" + strconv.FormatUint(uint64(postId), 10) + "/" + utils.GenerateHashFromString(imageData.Filename) + "." + imageData.Format
+			imageData, err := s.mediaPort.SaveImageToS3(imageMetadata, imageFiles[index], s.s3MediaBucketName, objectKey, postId)
+			if err != nil {
+				s.logger.Errorf("Failed to save metadata for S3 image: %v", err)
+				errorChan <- err
+				return
+			}
 
-	// Retrieve the S3 bucket name and region from environment variables
-	s3BucketName := viper.GetString("AWS_S3_MEDIA_BUCKET_NAME")
-	s3Region := viper.GetString("AWS_REGION")
-	if s3BucketName == "" {
-		s.logger.Error("Missing environment variable: AWS_S3_MEDIA_BUCKET_NAME")
-		return domain.PostImage{}, errorhandler.NewDomainError(
-			errorhandler.ErrMissingEnvVariable,
-			"Missing environment variable: AWS_S3_MEDIA_BUCKET_NAME",
-			nil,
-		)
-	}
+			postImage, err := s.postPort.SaveMetadataOfImageOfS3(imageData)
+			if err != nil {
+				s.logger.Errorf("Failed to save metadata for S3 image: %v", err)
+				errorChan <- errorhandler.NewDomainError(
+					errorhandler.ErrMetadataSaveFailed,
+					errorhandler.GetErrorMessage(errorhandler.ErrMetadataSaveFailed),
+					err,
+				)
+				return
+			}
 
-	// Upload the file to S3
-	_, err = s.s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(s3BucketName),
-		Key:    aws.String(objectKey),
-		Body:   file,
-	})
-	if err != nil {
-		s.logger.Errorf("Failed to upload file to S3: %v", err)
-		return domain.PostImage{}, errorhandler.NewDomainError(
-			errorhandler.ErrS3UploadFailed,
-			errorhandler.GetErrorMessage(errorhandler.ErrS3UploadFailed),
-			err,
-		)
+			savedImageChan <- postImage
+		}(index, imageMetadata)
 	}
 
-	// Generate the public S3 URL
-	imageData.S3Url = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s3BucketName, s3Region, objectKey)
-	imageData.S3ObjectKey = objectKey
-	imageData.PostId = postId
-	// Save image metadata to the database
-	postImage, err := s.mediaPort.SaveMetadataOfImageOfS3(imageData)
-
-	if err != nil {
-		s.logger.Errorf("Failed to save metadata for S3 image: %v", err)
-		return domain.PostImage{}, errorhandler.NewDomainError(
-			errorhandler.ErrMetadataSaveFailed,
-			errorhandler.GetErrorMessage(errorhandler.ErrMetadataSaveFailed),
-			err,
-		)
+	for i := 0; i < len(imagesData); i++ {
+		select {
+		case savedImage := <-savedImageChan:
+			savedImages = append(savedImages, savedImage)
+		case err := <-errorChan:
+			return nil, err
+		}
 	}
 
-	return postImage, nil
+	return savedImages, nil
 }
 
 func (s *MediaServiceStruct) DeleteImage(imageKey string) error {
 	s.logger.Infof("Deleting image from S3 with key: %s", imageKey)
-	return s.mediaPort.DeleteImageFromS3(imageKey)
-}
-
-func (s *MediaServiceStruct) GetImage(imageKey string) (domain.PostImage, error) {
-	s.logger.Infof("Getting image with key: %s", imageKey)
-	return s.mediaPort.GetImageFromS3(imageKey)
-}
-
-func (s *MediaServiceStruct) ListImages(postId uint, page, size int) ([]domain.PostImage, int, error) {
-	s.logger.Infof("Listing images for post ID: %d", postId)
-	return s.mediaPort.ListImagesFromS3(postId, page, size)
+	return s.mediaPort.DeleteImageFromS3(s.s3MediaBucketName, imageKey)
 }
 
 func (s *MediaServiceStruct) SetMainImage(postId, imageId uint) error {
 	s.logger.Infof("Setting image ID: %d as main image for post ID: %d", imageId, postId)
-	return s.mediaPort.SetPostMainImage(postId, imageId)
+	return s.postPort.SetPostMainImage(postId, imageId)
 }
 
 // Report Operations

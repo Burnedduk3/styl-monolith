@@ -547,8 +547,10 @@ func (r *MediaCrudRepository) UpdatePost(postId uint, updatedPost domain.Post) (
 			updateResult.Error,
 		)
 	}
+	newPost := postgresPost.ToPostDomain()
+	newPost.PostImages = updatedPost.PostImages
 
-	return postgresPost.ToPostDomain(), nil
+	return newPost, nil
 }
 
 // IncreasePostViewCount increments the view count for a post.
