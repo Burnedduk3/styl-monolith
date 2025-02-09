@@ -112,7 +112,7 @@ func (s *MediaServiceStruct) UploadImage(imageData domain.PostImage, imageFile *
 	defer file.Close()
 
 	// Generate the S3 object key
-	objectKey := emailHash + "/" + strconv.FormatUint(uint64(postId), 10) + "/" + utils.GenerateHashFromString(imageData.Filename)
+	objectKey := emailHash + "/" + strconv.FormatUint(uint64(postId), 10) + "/" + utils.GenerateHashFromString(imageData.Filename) + "." + imageData.Format
 
 	// Retrieve the S3 bucket name and region from environment variables
 	s3BucketName := viper.GetString("AWS_S3_MEDIA_BUCKET_NAME")

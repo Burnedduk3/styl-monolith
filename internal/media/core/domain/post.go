@@ -4,6 +4,7 @@ import (
 	"github.com/disintegration/imaging"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"mime/multipart"
+	"strings"
 	pb "styl-monolith/generated/proto/media"
 	"time"
 )
@@ -215,6 +216,15 @@ func ToPostImageDomainFromMultipartForm(fileHeader *multipart.FileHeader, arrInd
 	fileType := fileHeader.Header.Get("Content-Type")
 
 	var width, height int
+
+	var format string
+	dotIndex := strings.LastIndex(filename, ".")
+	if dotIndex != -1 && dotIndex < len(filename)-1 { // Ensure there's an extension
+		format = filename[dotIndex+1:]
+	} else {
+		format = "unknown" // No extension found
+	}
+
 	img, err := imaging.Decode(file)
 	if err != nil {
 		width = 0
@@ -233,5 +243,6 @@ func ToPostImageDomainFromMultipartForm(fileHeader *multipart.FileHeader, arrInd
 		Created:  time.Now(),
 		IsMain:   arrIndex == 0,
 		Order:    arrIndex,
+		Format:   format,
 	}, nil
 }
