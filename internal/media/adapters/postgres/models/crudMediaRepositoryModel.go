@@ -157,38 +157,38 @@ func (ps *PostSaved) ToPostSavedDomain() domain.PostSaved {
 // PostImage contains images associated with a post.
 type PostImage struct {
 	gorm.Model
-	PostID    uint   `gorm:"index"`
-	ImageID   uint   `gorm:"index"`
-	S3URL     string `gorm:"type:text"`
-	IsDeleted bool   `gorm:"default:false"`
-	IsMain    bool   `gorm:"default:false"`
-	Order     int
-	Width     int
-	Height    int
-	Size      int
-	Type      string
-	Format    string
-	Exif      string
-	Location  string
+	PostID      uint   `gorm:"index"`
+	ImageID     uint   `gorm:"index"`
+	S3URL       string `gorm:"type:text"`
+	S3ObjectKey string `gorm:"type:text"`
+	IsDeleted   bool   `gorm:"default:false"`
+	IsMain      bool   `gorm:"default:false"`
+	Order       int
+	Width       int
+	Height      int
+	Size        int
+	Type        string
+	Format      string
+	Exif        string
+	Location    string
 }
 
 // ToPostImageDomain converts a PostImage model instance to a domain.PostImage.
 func (pi *PostImage) ToPostImageDomain() domain.PostImage {
 	return domain.PostImage{
-		Id:        pi.ID,
-		PostId:    pi.PostID,
-		ImageId:   pi.ImageID,
-		S3Url:     pi.S3URL,
-		IsDeleted: pi.IsDeleted,
-		IsMain:    pi.IsMain,
-		Order:     pi.Order,
-		Width:     pi.Width,
-		Height:    pi.Height,
-		Size:      pi.Size,
-		Type:      pi.Type,
-		Format:    pi.Format,
-		Exif:      pi.Exif,
-		Location:  pi.Location,
+		Id:          pi.ID,
+		PostId:      pi.PostID,
+		ImageId:     pi.ImageID,
+		S3Url:       pi.S3URL,
+		IsDeleted:   pi.IsDeleted,
+		IsMain:      pi.IsMain,
+		Order:       pi.Order,
+		Width:       pi.Width,
+		Height:      pi.Height,
+		Size:        pi.Size,
+		Type:        pi.Type,
+		Format:      pi.Format,
+		S3ObjectKey: pi.S3ObjectKey,
 	}
 }
 
@@ -224,19 +224,18 @@ func NewPostgresPostFromDomainPost(post domain.Post) Post {
 			Model: gorm.Model{
 				ID: image.Id,
 			},
-			PostID:    image.PostId,
-			ImageID:   image.ImageId,
-			S3URL:     image.S3Url,
-			IsDeleted: image.IsDeleted,
-			IsMain:    image.IsMain,
-			Order:     image.Order,
-			Width:     image.Width,
-			Height:    image.Height,
-			Size:      image.Size,
-			Type:      image.Type,
-			Format:    image.Format,
-			Exif:      image.Exif,
-			Location:  image.Location,
+			PostID:      image.PostId,
+			ImageID:     image.ImageId,
+			S3URL:       image.S3Url,
+			IsDeleted:   image.IsDeleted,
+			IsMain:      image.IsMain,
+			Order:       image.Order,
+			Width:       image.Width,
+			Height:      image.Height,
+			Size:        image.Size,
+			Type:        image.Type,
+			Format:      image.Format,
+			S3ObjectKey: image.S3ObjectKey,
 		})
 	}
 
@@ -319,18 +318,17 @@ func NewPostgresPostImageFromDomainPostImage(image domain.PostImage) PostImage {
 		Model: gorm.Model{
 			ID: image.Id,
 		},
-		PostID:    image.PostId,
-		ImageID:   image.ImageId,
-		S3URL:     image.S3Url,
-		IsDeleted: image.IsDeleted,
-		IsMain:    image.IsMain,
-		Order:     image.Order,
-		Width:     image.Width,
-		Height:    image.Height,
-		Size:      image.Size,
-		Type:      image.Type,
-		Format:    image.Format,
-		Exif:      image.Exif,
-		Location:  image.Location,
+		PostID:      image.PostId,
+		ImageID:     image.ImageId,
+		S3URL:       image.S3Url,
+		IsDeleted:   image.IsDeleted,
+		IsMain:      image.IsMain,
+		Order:       image.Order,
+		Width:       image.Width,
+		Height:      image.Height,
+		Size:        image.Size,
+		Type:        image.Type,
+		Format:      image.Format,
+		S3ObjectKey: image.S3ObjectKey,
 	}
 }

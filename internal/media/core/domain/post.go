@@ -1,7 +1,9 @@
 package domain
 
 import (
+	"github.com/disintegration/imaging"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"mime/multipart"
 	pb "styl-monolith/generated/proto/media"
 	"time"
 )
@@ -66,22 +68,22 @@ type PostSaved struct {
 }
 
 type PostImage struct {
-	Id        uint
-	PostId    uint
-	ImageId   uint
-	S3Url     string
-	Created   time.Time
-	Deleted   time.Time
-	IsDeleted bool
-	IsMain    bool
-	Order     int
-	Width     int
-	Height    int
-	Size      int
-	Type      string
-	Format    string
-	Exif      string
-	Location  string
+	Id          uint
+	PostId      uint
+	ImageId     uint
+	S3Url       string
+	S3ObjectKey string
+	Created     time.Time
+	Deleted     time.Time
+	IsDeleted   bool
+	IsMain      bool
+	Order       int
+	Width       int
+	Height      int
+	Size        int
+	Filename    string
+	Type        string
+	Format      string
 }
 
 func (p *Post) ToProtoDomain() *pb.Post {
@@ -129,8 +131,6 @@ func convertPostImagesToProto(images []PostImage) []*pb.PostImage {
 			Size:      int32(image.Size),
 			Type:      image.Type,
 			Format:    image.Format,
-			Exif:      image.Exif,
-			Location:  image.Location,
 		})
 	}
 	return protoImages
@@ -201,4 +201,37 @@ func (c *PostComment) ToProtoDomain() *pb.PostComment {
 		IsDeleted:  c.IsDeleted,
 		IsReported: c.IsReported,
 	}
+}
+
+func ToPostImageDomainFromMultipartForm(fileHeader *multipart.FileHeader, arrIndex int) (PostImage, error) {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return PostImage{}, err
+	}
+	defer file.Close()
+
+	size := int(fileHeader.Size)
+	filename := fileHeader.Filename
+	fileType := fileHeader.Header.Get("Content-Type")
+
+	var width, height int
+	img, err := imaging.Decode(file)
+	if err != nil {
+		width = 0
+		height = 0
+	} else {
+		width = img.Bounds().Dx()
+		height = img.Bounds().Dy()
+	}
+
+	return PostImage{
+		Size:     size,
+		Filename: filename,
+		Type:     fileType,
+		Width:    width,
+		Height:   height,
+		Created:  time.Now(),
+		IsMain:   arrIndex == 0,
+		Order:    arrIndex,
+	}, nil
 }

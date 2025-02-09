@@ -1,11 +1,13 @@
 package rest
 
 import (
+	"encoding/json"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 	"styl-monolith/internal/media/adapters/rest/models"
+	"styl-monolith/internal/media/core/domain"
 	"styl-monolith/internal/media/core/services"
 	"styl-monolith/pkg/logger"
 )
@@ -15,7 +17,6 @@ type CrudPostHandler interface {
 	CreateComment(ech echo.Context) error
 	CreateReport(ech echo.Context) error
 	CreateLike(ech echo.Context) error
-	UploadPostImages(ech echo.Context) error
 	GetPostById(ech echo.Context, id string) error
 	PostImagesById(ech echo.Context, id string) error
 	DeletePost(ech echo.Context, id string) error
@@ -42,34 +43,65 @@ func NewCrudPostHandler(logger *logrus.Logger, mediaService services.MediaServic
 
 func (c CrudPostStruct) CreatePost(ech echo.Context) error {
 	var payload models.PostPayload
-	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error(logger.FailedToBindPostPayload, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
-	}
-
-	if err := payload.Validate(); err != nil {
-		c.logger.Error(logger.ValidationError, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
-	}
-
 	form, err := ech.MultipartForm()
 	if err != nil {
 		c.logger.Error(logger.FailedToParseMultipartForm, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid form data"})
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Failed to read form data"})
 	}
 
+	body := form.Value["body"]
+	if len(body) == 0 {
+		c.logger.Error(logger.MissingBodyField)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Missing 'body' field in the form data"})
+	}
+
+	// Parse the "body" value and bind it to PostPayload
+	if err = json.Unmarshal([]byte(body[0]), &payload); err != nil {
+		c.logger.Error(logger.FailedToBindPostPayload, err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid JSON structure in 'body' field"})
+	}
+
+	if err = payload.Validate(); err != nil {
+		c.logger.Error(logger.ValidationError, err)
+		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
+	}
+	var imageToUpload []domain.PostImage
 	files := form.File["images"]
+
 	if len(files) > 8 || len(files) < 1 {
 		c.logger.Error(logger.TooManyImagesUploaded)
 		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "You can upload up to 8 images only"})
 	}
-
 	post, err := c.mediaService.CreatePost(payload.ToDomainPost())
+
 	if err != nil {
 		c.logger.Error(logger.FailedToCreatePost, err)
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create post"})
 	}
 
+	for index, file := range files {
+		img, err := domain.ToPostImageDomainFromMultipartForm(file, index)
+		if err != nil {
+			c.logger.Error(logger.FailedToParseMultipartForm, err)
+			err = c.mediaService.HardDeletePost(post.Id)
+			c.logger.Error(logger.FailedToDeletePost, err)
+			return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Failed to parse multipart form"})
+		}
+		userEmail := ech.Get("email").(string)
+		postImage, err := c.mediaService.UploadImage(img, file, userEmail, post.Id)
+		if err != nil {
+			c.logger.Error(logger.FailedToUploadImage, err)
+			err = c.mediaService.HardDeletePost(post.Id)
+			if err != nil {
+				c.logger.Error(logger.FailedToDeletePost, err)
+			}
+			return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Failed to parse multipart form"})
+		}
+		imageToUpload = append(imageToUpload, postImage)
+	}
+
+	post.PostImages = imageToUpload
+	post, err = c.mediaService.UpdatePost(post.Id, post)
 	c.logger.Info(logger.SuccessfullyCreatedPost)
 	return ech.JSON(http.StatusCreated, models.NewPostResponseFromDomain(post))
 }
@@ -134,28 +166,6 @@ func (c CrudPostStruct) CreateLike(ech echo.Context) error {
 		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to create like"})
 	}
 	return ech.JSON(http.StatusCreated, models.NewResponseLikeFromDomain(like))
-}
-
-func (c CrudPostStruct) UploadPostImages(ech echo.Context) error {
-	var payload models.ImagePayload
-	if err := ech.Bind(&payload); err != nil {
-		c.logger.Error(logger.FailedToBindImagePayload, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Bad request payload"})
-	}
-
-	if err := payload.Validate(); err != nil {
-		c.logger.Error(logger.ValidationError, err)
-		return ech.JSON(http.StatusBadRequest, map[string]string{"message": "Validation failed"})
-	}
-
-	image, err := c.mediaService.UploadImage(payload.ToDomainImage())
-	if err != nil {
-		c.logger.Error(logger.FailedToUploadImage, err)
-		return ech.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to upload image"})
-	}
-
-	c.logger.Info(logger.SuccessfullyUploadedImage)
-	return ech.JSON(http.StatusCreated, models.NewImageResponseFromDomain(image))
 }
 
 func (c CrudPostStruct) GetPostById(ech echo.Context, id string) error {

@@ -20,8 +20,8 @@ func NewMediaCrudRepository(log *logrus.Logger, conn *gorm.DB) *MediaCrudReposit
 	return &MediaCrudRepository{log: log, conn: conn}
 }
 
-// UploadImageToS3 adds a new image to the database and returns its S3 URL.
-func (r *MediaCrudRepository) UploadImageToS3(image domain.PostImage) (string, error) {
+// SaveMetadataOfImageOfS3 adds a new image to the database and returns its S3 URL.
+func (r *MediaCrudRepository) SaveMetadataOfImageOfS3(image domain.PostImage) (domain.PostImage, error) {
 	postgresPostImage := models.NewPostgresPostImageFromDomainPostImage(image)
 
 	result := r.conn.Create(&postgresPostImage)
@@ -31,9 +31,9 @@ func (r *MediaCrudRepository) UploadImageToS3(image domain.PostImage) (string, e
 			errorhandler.GetErrorMessage(errorhandler.ErrImageDatabaseUnableToCompleteOperation),
 			result.Error,
 		)
-		return "", err
+		return domain.PostImage{}, err
 	}
-	return postgresPostImage.S3URL, nil
+	return postgresPostImage.ToPostImageDomain(), nil
 }
 
 // DeleteImageFromS3 deletes an image record from the database by its S3 URL.
@@ -318,6 +318,110 @@ func (r *MediaCrudRepository) DeletePost(postId uint) error {
 			nil,
 		)
 	}
+	return nil
+}
+
+// HardDeletePost deletes a post and all its related data from the database by its ID.
+func (r *MediaCrudRepository) HardDeletePost(postId uint) error {
+	// Begin a transaction
+	tx := r.conn.Begin()
+	if tx.Error != nil {
+		r.log.Errorf("Failed to begin transaction: %v", tx.Error)
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			tx.Error,
+		)
+	}
+
+	// Delete related PostImages
+	if err := tx.Where("post_id = ?", postId).Delete(&models.PostImage{}).Error; err != nil {
+		r.log.Errorf("Failed to delete related images for post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrImageDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrImageDatabaseUnableToCompleteOperation),
+			err,
+		)
+	}
+
+	// Delete related PostComments
+	if err := tx.Where("post_id = ?", postId).Delete(&models.PostComment{}).Error; err != nil {
+		r.log.Errorf("Failed to delete related comments for post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			"Failed to delete related comments for the post.",
+			err,
+		)
+	}
+
+	// Delete related PostLikes
+	if err := tx.Where("post_id = ?", postId).Delete(&models.PostLike{}).Error; err != nil {
+		r.log.Errorf("Failed to delete related likes for post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			"Failed to delete related likes for the post.",
+			err,
+		)
+	}
+
+	// Delete related PostReports
+	if err := tx.Where("post_id = ?", postId).Delete(&models.PostReport{}).Error; err != nil {
+		r.log.Errorf("Failed to delete related reports for post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			"Failed to delete related reports for the post.",
+			err,
+		)
+	}
+
+	// Delete related PostSaves
+	if err := tx.Where("post_id = ?", postId).Delete(&models.PostSaved{}).Error; err != nil {
+		r.log.Errorf("Failed to delete related saves for post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			"Failed to delete related saves for the post.",
+			err,
+		)
+	}
+
+	// Delete the post itself
+	if err := tx.Delete(&models.Post{}, postId).Error; err != nil {
+		r.log.Errorf("Failed to delete post ID %d: %v", postId, err)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			err,
+		)
+	}
+
+	// Check if the post actually existed
+	if tx.RowsAffected == 0 {
+		r.log.Warnf("Post ID %d not found.", postId)
+		tx.Rollback()
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostNotFound,
+			fmt.Sprintf(errorhandler.GetErrorMessage(errorhandler.ErrPostNotFound), postId),
+			nil,
+		)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		r.log.Errorf("Failed to commit transaction for deleting post ID %d: %v", postId, err)
+		return errorhandler.NewDomainError(
+			errorhandler.ErrPostDatabaseUnableToCompleteOperation,
+			errorhandler.GetErrorMessage(errorhandler.ErrPostDatabaseUnableToCompleteOperation),
+			err,
+		)
+	}
+
+	r.log.Infof("Successfully deleted post ID %d and all related data.", postId)
 	return nil
 }
 

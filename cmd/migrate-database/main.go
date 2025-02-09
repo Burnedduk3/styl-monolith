@@ -12,15 +12,16 @@ import (
 
 // init configures the application by loading environment variables and setting up the logger.
 func init() {
-	// Initialize Viper to load configurations
-	viper.AutomaticEnv() // Automatically read from environment variables
+	viper.SetDefault("DB_HOST", "127.0.0.1")
 	viper.SetDefault("DB_HOST", "127.0.0.1")
 	viper.SetDefault("DB_USER", "root")
 	viper.SetDefault("DB_NAME", "test_db")
 	viper.SetDefault("DB_PASSWORD", "password")
 	viper.SetDefault("DB_SSLMODE", "disable")
 	viper.SetDefault("DB_PORT", "5432")
-	viper.SetDefault("LOG_LEVEL", "debug") // Default log level
+	viper.SetDefault("LOG_LEVEL", "debug")
+	viper.SetDefault("AWS_REGION", "us-east-1")
+	viper.AutomaticEnv()
 
 	// Verify required configurations
 	requiredVars := []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_PASSWORD", "DB_SSLMODE"}

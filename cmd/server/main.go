@@ -41,9 +41,11 @@ func init() {
 	viper.SetDefault("AWS_COGNITO_USER_POOL_CLIENT_SECRET", "MISSING")
 	viper.SetDefault("API_BASE_URL", "http://127.0.0.1:1323")
 	viper.SetDefault("AWS_DYNAMODB_TOKENS_TABLE", "staging-auth-tokens")
+	viper.SetDefault("AWS_S3_MEDIA_BUCKET_NAME", "staging-post-images-scrzo9nn")
+	viper.SetDefault("AWS_REGION", "us-east-1")
 
 	// Verify required configurations
-	requiredVars := []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_PASSWORD", "DB_SSLMODE"}
+	requiredVars := []string{"DB_HOST", "DB_USER", "DB_NAME", "DB_PASSWORD", "DB_SSLMODE", "AWS_S3_MEDIA_BUCKET_NAME"}
 	for _, key := range requiredVars {
 		if !viper.IsSet(key) {
 			panic(fmt.Sprintf("Missing required configuration %s", key))
@@ -64,7 +66,7 @@ func registerUsersDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 func registerMediaDomainRoutes(e *echo.Echo, logger *logrus.Logger) {
 	crudMediaDomainHandler := config.BuildMediaCrudDomainHandler(logger)
 	dynamodbRepo := config.CreateAwsAuthClient(logger)
-	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, false, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
+	utils.RegisterRoutesAutomatically(e, crudMediaDomainHandler, initialPath, logger, true, middleware.ValidateAccessTokenWithRepository(dynamodbRepo))
 }
 
 // registerMediaDomainRoutes configures and registers routes for the media domain in the provided Echo instance.

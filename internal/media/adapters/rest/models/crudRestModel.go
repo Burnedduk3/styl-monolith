@@ -12,11 +12,10 @@ import (
 
 // PostPayload represents the payload for creating/updating a post
 type PostPayload struct {
-	UserId    uint     `json:"userId"`
-	Caption   string   `json:"caption"`
-	IsPublic  bool     `json:"isPublic"`
-	TagIds    []uint   `json:"tagIds"`
-	ImageUrls []string `json:"imageUrls"`
+	UserId   uint   `json:"userId"`
+	Caption  string `json:"caption"`
+	IsPublic bool   `json:"isPublic"`
+	TagIds   []uint `json:"tagIds"`
 }
 
 func (p *PostPayload) Validate() error {
@@ -31,11 +30,6 @@ func (p *PostPayload) Validate() error {
 
 func (p *PostPayload) ToDomainPost() domain.Post {
 	var images []domain.PostImage
-	for _, url := range p.ImageUrls {
-		images = append(images, domain.PostImage{
-			S3Url: url,
-		})
-	}
 
 	return domain.Post{
 		UserId:     p.UserId,
@@ -265,19 +259,17 @@ func (i *ImagePayload) Validate() error {
 
 func (i *ImagePayload) ToDomainImage() domain.PostImage {
 	return domain.PostImage{
-		PostId:   i.PostId,
-		ImageId:  i.ImageId,
-		S3Url:    i.S3Url,
-		IsMain:   i.IsMain,
-		Order:    i.Order,
-		Width:    i.Width,
-		Height:   i.Height,
-		Size:     i.Size,
-		Type:     i.Type,
-		Format:   i.Format,
-		Exif:     i.Exif,
-		Location: i.Location,
-		Created:  time.Now(),
+		PostId:  i.PostId,
+		ImageId: i.ImageId,
+		S3Url:   i.S3Url,
+		IsMain:  i.IsMain,
+		Order:   i.Order,
+		Width:   i.Width,
+		Height:  i.Height,
+		Size:    i.Size,
+		Type:    i.Type,
+		Format:  i.Format,
+		Created: time.Now(),
 	}
 }
 

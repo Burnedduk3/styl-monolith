@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"math/rand"
 	"time"
 )
@@ -14,4 +16,13 @@ func GenerateRandomString(length int) string {
 		result[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(result) + "@"
+}
+
+func GenerateHashFromString(str string) string {
+	h := sha256.New()
+	h.Write([]byte(str))
+	emailHash := hex.EncodeToString(h.Sum(nil))
+	truncatedHash := emailHash[:8]
+
+	return truncatedHash
 }

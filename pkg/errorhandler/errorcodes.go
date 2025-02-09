@@ -40,6 +40,9 @@ const (
 	// Media domain errors
 	ErrImageDatabaseUnableToCompleteOperation = "IMAGE_001"
 	ErrImageNotFound                          = "IMAGE_002"
+	ErrMetadataSaveFailed                     = "IMAGE_003"
+	ErrS3UploadFailed                         = "IMAGE_004"
+	ErrFileOpenFailed                         = "IMAGE_005"
 
 	ErrCommentDatabaseUnableToCompleteOperation = "COMMENT_001"
 	ErrCommentNotFound                          = "COMMENT_002"
@@ -53,6 +56,9 @@ const (
 
 	ErrPostReportDatabaseUnableToCompleteOperation = "POST_REPORT_001"
 	ErrPostReportNotFound                          = "POST_REPORT_002"
+
+	// Env variables
+	ErrMissingEnvVariable = "ENV_VARIABLE_001"
 )
 
 // errorMessages defines a mapping of error codes to their corresponding descriptive error messages.
@@ -94,6 +100,10 @@ var errorMessages = map[string]string{
 	ErrReportNotFound:                                  "Report not found with ID: %d",
 	ErrPostReportDatabaseUnableToCompleteOperation:     "Unable to complete operation on post report database.\n",
 	ErrPostReportNotFound:                              "Post Report not found with ID: %d\n",
+	ErrFileOpenFailed:                                  "Failed to open the file.",
+	ErrS3UploadFailed:                                  "Upload to S3 failed.",
+	ErrMetadataSaveFailed:                              "Failed to save metadata for the uploaded image.",
+	ErrMissingEnvVariable:                              "Missing environment variable: %s",
 }
 
 // GetErrorMessage returns a human-readable error message corresponding to the provided error code.

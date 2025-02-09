@@ -3,7 +3,7 @@ package ports
 import "styl-monolith/internal/media/core/domain"
 
 type MediaPort interface {
-	UploadImageToS3(image domain.PostImage) (string, error)
+	SaveMetadataOfImageOfS3(image domain.PostImage) (domain.PostImage, error)
 	DeleteImageFromS3(imageKey string) error
 	GetImageFromS3(imageKey string) (domain.PostImage, error)
 	ListImagesFromS3(postId uint, page, size int) ([]domain.PostImage, int, error)
@@ -21,6 +21,7 @@ type CommentPort interface {
 type PostPort interface {
 	CreatePost(post domain.Post) (domain.Post, error)
 	DeletePost(postId uint) error
+	HardDeletePost(postId uint) error
 	ListPosts(page, size int) ([]domain.Post, int, error)
 	GetPost(postId uint) (domain.Post, error)
 	UpdatePost(postId uint, updatedData domain.Post) (domain.Post, error)

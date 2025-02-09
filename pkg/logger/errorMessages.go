@@ -25,4 +25,5 @@ const (
 	FailedToListReports        = "Failed to list reports: %s"
 	FailedToListImages         = "Failed to list images: %s"
 	FailedToDeleteImage        = "Failed to delete image: %s"
+	MissingBodyField           = "missing body field on multiform"
 )

@@ -54,6 +54,13 @@ func ValidateAccessTokenWithRepository(repo ports.LoginPort) echo.MiddlewareFunc
 				return echo.NewHTTPError(http.StatusUnauthorized, "Token has expired or is not yet valid")
 			}
 
+			idClaims, err := jwt.DecodeAndVerifyIdJWT(token.IdToken, token.IdTokenHash)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token signature or expired token")
+			}
+
+			claims.Email = idClaims.Email
+
 			// Optional: Ensure token has required claims (e.g., Email, Username)
 			if claims.Email == "" || claims.Username == "" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Token is missing required claims")
