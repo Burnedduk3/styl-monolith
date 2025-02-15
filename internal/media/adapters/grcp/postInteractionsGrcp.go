@@ -7,21 +7,20 @@ import (
 	"styl-monolith/internal/media/core/services"
 )
 
-// CrudPostGrcp is a gRPC server for handling CRUD operations on posts and related entities.
-// It embeds pb.UnimplementedCrudPostServiceServer to ensure forward compatibility.
-// It uses MediaService for media-related operations and logrus.Logger for logging.
+// CrudPostGrcp is a gRPC service implementation for managing CRUD operations for posts and associated actions.
+// It combines a MediaService interface for business logic and logging for request tracking and debugging.
 type CrudPostGrcp struct {
 	pb.UnimplementedCrudPostServiceServer
 	mediaService services.MediaService
 	log          *logrus.Logger
 }
 
-// NewCrudPostGrcp initializes and returns a new instance of CrudPostGrcp with the provided MediaService and logger.
+// NewCrudPostGrcp creates a new instance of CrudPostGrcp with the provided MediaService and logger dependencies.
 func NewCrudPostGrcp(mediaService services.MediaService, logger *logrus.Logger) *CrudPostGrcp {
 	return &CrudPostGrcp{mediaService: mediaService, log: logger}
 }
 
-// ListPosts fetches a paginated list of posts based on the provided page and size from the request.
+// ListPosts retrieves a paginated list of posts based on the provided pagination request.
 func (s *CrudPostGrcp) ListPosts(ctx context.Context, req *pb.PaginationRequest) (*pb.PaginationResponsePost, error) {
 	s.log.Debug("Received ListPosts GRPC request")
 	posts, TotalPages, err := s.mediaService.ListPosts(int(req.Page), int(req.Size))
@@ -41,7 +40,7 @@ func (s *CrudPostGrcp) ListPosts(ctx context.Context, req *pb.PaginationRequest)
 	}, nil
 }
 
-// ListComments retrieves a paginated list of comments for a specific post, given pagination request details like page and size.
+// ListComments retrieves a paginated list of comments for a specific post based on the provided post ID, page, and size.
 func (s *CrudPostGrcp) ListComments(ctx context.Context, req *pb.PaginationRequest) (*pb.PaginationResponseComments, error) {
 	dcomments, TotalPages, err := s.mediaService.ListComments(uint(req.PostId), int(req.Page), int(req.Size))
 	if err != nil {
@@ -60,13 +59,16 @@ func (s *CrudPostGrcp) ListComments(ctx context.Context, req *pb.PaginationReque
 	}, nil
 }
 
-// PostCommentsById retrieves comments associated with a specific post ID and returns the response containing the post and comments.
+// PostCommentsById retrieves comments for a specific post by its PostId.
+// It returns a PostCommentsByIdResponse containing the post ID and associated comments.
 func (s *CrudPostGrcp) PostCommentsById(ctx context.Context, req *pb.PostCommentsByIdRequest) (*pb.PostCommentsByIdResponse, error) {
 	s.log.Printf("Received CreatePost request: %v", req.PostId)
 	return &pb.PostCommentsByIdResponse{}, nil
 }
 
-// GetUserProfile fetches a paginated list of posts related to a specific user based on the provided user information.
+// GetUserProfile retrieves a paginated list of posts by a specific user and returns it in the response.
+// It accepts the user ID, current page, and page size via the request and communicates with the media service for data retrieval.
+// Returns a PaginationResponsePost containing the list of posts, current page, page size, and total pages, or an error.
 func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.UserProfile) (*pb.PaginationResponsePost, error) {
 	reqUserId := req.User.UserId
 	page := req.PagRequest.Page
@@ -88,7 +90,7 @@ func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.UserProfile) 
 	}, nil
 }
 
-// GetUserFeed retrieves a paginated feed of posts for a specific user based on the provided request parameters.
+// GetUserFeed retrieves a paginated list of user feed posts based on the provided user and pagination request.
 func (s *CrudPostGrcp) GetUserFeed(ctx context.Context, req *pb.UserFeed) (*pb.PaginationResponsePost, error) {
 	return nil, nil
 }
