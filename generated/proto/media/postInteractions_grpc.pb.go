@@ -33,7 +33,7 @@ type CrudPostServiceClient interface {
 	ListPosts(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponsePost, error)
 	ListComments(ctx context.Context, in *PaginationRequest, opts ...grpc.CallOption) (*PaginationResponseComments, error)
 	PostCommentsById(ctx context.Context, in *PostCommentsByIdRequest, opts ...grpc.CallOption) (*PostCommentsByIdResponse, error)
-	GetUserProfile(ctx context.Context, in *User, opts ...grpc.CallOption) (*PaginationResponsePost, error)
+	GetUserProfile(ctx context.Context, in *UserProfile, opts ...grpc.CallOption) (*PaginationResponsePost, error)
 	GetUserFeed(ctx context.Context, in *UserFeed, opts ...grpc.CallOption) (*PaginationResponsePost, error)
 }
 
@@ -75,7 +75,7 @@ func (c *crudPostServiceClient) PostCommentsById(ctx context.Context, in *PostCo
 	return out, nil
 }
 
-func (c *crudPostServiceClient) GetUserProfile(ctx context.Context, in *User, opts ...grpc.CallOption) (*PaginationResponsePost, error) {
+func (c *crudPostServiceClient) GetUserProfile(ctx context.Context, in *UserProfile, opts ...grpc.CallOption) (*PaginationResponsePost, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PaginationResponsePost)
 	err := c.cc.Invoke(ctx, CrudPostService_GetUserProfile_FullMethodName, in, out, cOpts...)
@@ -102,7 +102,7 @@ type CrudPostServiceServer interface {
 	ListPosts(context.Context, *PaginationRequest) (*PaginationResponsePost, error)
 	ListComments(context.Context, *PaginationRequest) (*PaginationResponseComments, error)
 	PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error)
-	GetUserProfile(context.Context, *User) (*PaginationResponsePost, error)
+	GetUserProfile(context.Context, *UserProfile) (*PaginationResponsePost, error)
 	GetUserFeed(context.Context, *UserFeed) (*PaginationResponsePost, error)
 	mustEmbedUnimplementedCrudPostServiceServer()
 }
@@ -123,7 +123,7 @@ func (UnimplementedCrudPostServiceServer) ListComments(context.Context, *Paginat
 func (UnimplementedCrudPostServiceServer) PostCommentsById(context.Context, *PostCommentsByIdRequest) (*PostCommentsByIdResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PostCommentsById not implemented")
 }
-func (UnimplementedCrudPostServiceServer) GetUserProfile(context.Context, *User) (*PaginationResponsePost, error) {
+func (UnimplementedCrudPostServiceServer) GetUserProfile(context.Context, *UserProfile) (*PaginationResponsePost, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
 }
 func (UnimplementedCrudPostServiceServer) GetUserFeed(context.Context, *UserFeed) (*PaginationResponsePost, error) {
@@ -205,7 +205,7 @@ func _CrudPostService_PostCommentsById_Handler(srv interface{}, ctx context.Cont
 }
 
 func _CrudPostService_GetUserProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(User)
+	in := new(UserProfile)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func _CrudPostService_GetUserProfile_Handler(srv interface{}, ctx context.Contex
 		FullMethod: CrudPostService_GetUserProfile_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CrudPostServiceServer).GetUserProfile(ctx, req.(*User))
+		return srv.(CrudPostServiceServer).GetUserProfile(ctx, req.(*UserProfile))
 	}
 	return interceptor(ctx, in, info, handler)
 }

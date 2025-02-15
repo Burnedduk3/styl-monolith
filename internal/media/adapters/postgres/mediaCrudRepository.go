@@ -588,9 +588,19 @@ func (r *MediaCrudRepository) ListPostsByUser(userId uint, page, size int) ([]do
 		)
 	}
 
-	// Paginate the query
+	// Define pagination
 	offset := (page - 1) * size
-	result := r.conn.Where("user_id = ?", userId).Limit(size).Offset(offset).Find(&postgresPosts)
+
+	// Query posts with eager loading of related data
+	result := r.conn.Preload("PostImages").
+		Preload("PostComments").
+		Preload("PostLikes").
+		Preload("PostSaves").
+		Where("user_id = ? AND is_deleted = ?", userId, false).
+		Limit(size).
+		Offset(offset).
+		Find(&postgresPosts)
+
 	if result.Error != nil {
 		return nil, 0, errorhandler.NewDomainError(
 			errorhandler.ErrPostDatabaseUnableToCompleteOperation,

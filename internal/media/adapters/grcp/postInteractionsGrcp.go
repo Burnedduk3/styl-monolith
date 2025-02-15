@@ -67,8 +67,25 @@ func (s *CrudPostGrcp) PostCommentsById(ctx context.Context, req *pb.PostComment
 }
 
 // GetUserProfile fetches a paginated list of posts related to a specific user based on the provided user information.
-func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.User) (*pb.PaginationResponsePost, error) {
-	return nil, nil
+func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.UserProfile) (*pb.PaginationResponsePost, error) {
+	reqUserId := req.User.UserId
+	page := req.PagRequest.Page
+	size := req.PagRequest.Size
+	posts, totalPages, err := s.mediaService.ListPostsByUser(uint(reqUserId), int(page), int(size))
+	if err != nil {
+		return nil, err
+	}
+	var postsResponse []*pb.Post
+	for _, post := range posts {
+		postsResponse = append(postsResponse, post.ToProtoDomain())
+	}
+
+	return &pb.PaginationResponsePost{
+		CurrentPage: uint64(req.PagRequest.Page),
+		PageSize:    uint64(req.PagRequest.Size),
+		TotalPages:  uint64(totalPages),
+		Post:        postsResponse,
+	}, nil
 }
 
 // GetUserFeed retrieves a paginated feed of posts for a specific user based on the provided request parameters.
