@@ -12,12 +12,13 @@ import (
 type CrudPostGrcp struct {
 	pb.UnimplementedCrudPostServiceServer
 	mediaService services.MediaService
+	feedService  services.FeedService
 	log          *logrus.Logger
 }
 
 // NewCrudPostGrcp creates a new instance of CrudPostGrcp with the provided MediaService and logger dependencies.
-func NewCrudPostGrcp(mediaService services.MediaService, logger *logrus.Logger) *CrudPostGrcp {
-	return &CrudPostGrcp{mediaService: mediaService, log: logger}
+func NewCrudPostGrcp(mediaService services.MediaService, feedService services.FeedService, logger *logrus.Logger) *CrudPostGrcp {
+	return &CrudPostGrcp{mediaService: mediaService, log: logger, feedService: feedService}
 }
 
 // ListPosts retrieves a paginated list of posts based on the provided pagination request.
@@ -90,7 +91,25 @@ func (s *CrudPostGrcp) GetUserProfile(ctx context.Context, req *pb.UserProfile) 
 	}, nil
 }
 
-// GetUserFeed retrieves a paginated list of user feed posts based on the provided user and pagination request.
 func (s *CrudPostGrcp) GetUserFeed(ctx context.Context, req *pb.UserFeed) (*pb.PaginationResponsePost, error) {
-	return nil, nil
+	reqUserId := req.User.UserId
+	page := req.PagRequest.Page
+	size := req.PagRequest.Size
+
+	posts, err := s.feedService.GetRandomFeed(uint(reqUserId), int(page), int(size))
+	if err != nil {
+		return nil, err
+	}
+
+	var postsResponse []*pb.Post
+	for _, post := range posts {
+		postsResponse = append(postsResponse, post.ToProtoDomain())
+	}
+
+	return &pb.PaginationResponsePost{
+		CurrentPage: uint64(page),
+		PageSize:    uint64(size),
+		TotalPages:  0,
+		Post:        postsResponse,
+	}, nil
 }

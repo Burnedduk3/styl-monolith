@@ -1,4 +1,4 @@
-package rest
+package postgres
 
 import (
 	"errors"

@@ -34,6 +34,8 @@ func BuildMediaCrudDomainGrpc(log *logrus.Logger) stylGrpc.CrudPostGrcp {
 	s3Client := aws.GetS3ClientInstance(log, region).GetClient()
 	mediaPort := awsAdapater.NewS3Service(s3Client, log, region)
 	mediaService := services.NewMediaService(log, mediaPort, postgresMediaRepo, postgresMediaRepo, postgresMediaRepo, postgresMediaRepo, s3MediaBucketName)
-	grpcMediaService := stylGrpc.NewCrudPostGrcp(mediaService, log)
+	feedRepo := mediaPostgresAdapter.NewFeedRepository(log, db)
+	feedService := services.NewFeedService(log, feedRepo)
+	grpcMediaService := stylGrpc.NewCrudPostGrcp(mediaService, feedService, log)
 	return *grpcMediaService
 }
